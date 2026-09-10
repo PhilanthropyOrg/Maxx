@@ -1,0 +1,8 @@
+{
+  "name": "fenix",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Burn down, rise with context — session handoff across /clear.",
+  "scripts": { "test": "node --test fenix/*.test.mjs" },
+  "license": "MIT"
+}
