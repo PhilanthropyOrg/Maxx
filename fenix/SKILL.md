@@ -19,7 +19,7 @@ cannot resurrect a thread that was cleared bare. Handoffs are PER-DIRECTORY
 
 ## What to do
 
-0. **Run `node ~/.claude/skills/maxx/fenix.mjs --state` and paste its output into the
+0. **Run `node ~/.claude/skills/fenix/fenix.mjs --state` and paste its output into the
    handoff verbatim.** It prints branch, HEAD, uncommitted files, UNPUSHED commits, what
    landed in the last 6h, and open PRs — read from git and gh, not from your memory. It
    also resurfaces the LAST handoff's "In motion" so you must say what happened to it.
@@ -95,7 +95,7 @@ cannot resurrect a thread that was cleared bare. Handoffs are PER-DIRECTORY
    headless command yourself and watch it: `claude -p "$(cat .fenix/handoff.md)"`.
 
 4. Do NOT delete or edit the handoff after writing it — `fenix.mjs --wake` consumes
-   it on next session start. `node ~/.claude/skills/maxx/fenix.mjs --status` shows
+   it on next session start. `node ~/.claude/skills/fenix/fenix.mjs --status` shows
    every pending handoff ON THE WHOLE BOX with its id and directory; `--local` narrows
    it to here.
 
@@ -112,10 +112,10 @@ cannot resurrect a thread that was cleared bare. Handoffs are PER-DIRECTORY
    the human can name the thread they are resuming:
 
    ```
-   node ~/.claude/skills/maxx/fenix.mjs --status              # EVERY pending handoff on the box
-   node ~/.claude/skills/maxx/fenix.mjs --status --local      # just this directory, + its id
-   node ~/.claude/skills/maxx/fenix.mjs --recover <id>        # print that handoff, from ANY directory
-   node ~/.claude/skills/maxx/fenix.mjs --compact [--list]    # manual prune (rarely needed)
+   node ~/.claude/skills/fenix/fenix.mjs --status              # EVERY pending handoff on the box
+   node ~/.claude/skills/fenix/fenix.mjs --status --local      # just this directory, + its id
+   node ~/.claude/skills/fenix/fenix.mjs --recover <id>        # print that handoff, from ANY directory
+   node ~/.claude/skills/fenix/fenix.mjs --compact [--list]    # manual prune (rarely needed)
    ```
 
    **Pruning is automatic** — every archive event trims the tail it just extended, so the
