@@ -49,7 +49,16 @@ function blockShare(anchor, weekBilled, weekReset, fiveBilled, now) {
   const resetIn = weekReset ? weekReset - now : null;
   const none = { block_share_pct: null, block_used_pct: null, blocks_left_week: null, on_pace: null,
                  session_used_pct: null, session_advised_pct: null, session_wall_pct: 100 };
-  if (!pct || pct <= 0 || pct > 1 || !resetIn || resetIn <= 0 || !weekBilled) return none;
+  // session_used_pct is Anthropic's OWN 5h reading off the anchor. It never depended on our
+  // ledger, so it must not be nulled by a ledger-shaped problem (2026-09-15 deadlock): an
+  // empty weekBilled means "nothing recorded HERE yet", not "the block is unreadable".
+  // block_over_pace() in fleet-kit fails CLOSED on a null session_used_pct, so returning
+  // `none` here pinned every fleet member's hourly ceiling to 0.0000 -> members held without
+  // spending -> no usage rows were written -> nothing was emitted -> weekBilled stayed 0.
+  // Self-sustaining: the philanthropy fleet sat at zero autonomous PRs for days while the
+  // account was 0.67% into its week. The marks that genuinely need the ledger stay null.
+  const anchorOnly = fivePct != null ? { ...none, session_used_pct: Math.round(fivePct * 1000) / 10 } : none;
+  if (!pct || pct <= 0 || pct > 1 || !resetIn || resetIn <= 0 || !weekBilled) return anchorOnly;
 
   const weekLimit = weekBilled / pct;                       // implied, never configured
   const blocksLeft = Math.max(1, Math.ceil(resetIn / FIVE_H));
