@@ -772,3 +772,25 @@ test("no aggregate row appears when the surfaces fit under the cap", () => {
   assert.equal(b.surfaces.length, 1);
   assert.ok(!("aggregated" in b.surfaces[0]), "a short list must not grow a synthetic row");
 });
+
+// ── the empty-ledger deadlock (2026-09-15) ───────────────────────────────────
+// blockShare() bailed to all-nulls whenever `weekBilled` was falsy. An empty local
+// ledger is not an unreadable meter: it means nothing has been RECORDED here yet,
+// which is exactly the state a fleet is in after its members have been paced off
+// for a while. The nulls then fed maxx_share_ceiling.py's block_over_pace(), which
+// fails CLOSED on a null session_used_pct and pinned every member's ceiling to
+// 0.0000 -- so nobody spent, so nothing was emitted, so the ledger stayed empty.
+// A self-sustaining deadlock that held the philanthropy fleet at zero PRs for days
+// while Anthropic's own reading said the account was 0.67% into its week.
+test("an empty ledger still reports the block marks from the live anchor", () => {
+  const s = emptyStore();
+  // No events at all -- the fleet has been paced off and has recorded no spend.
+  s.anchors.push({ ts: T - 60, five_pct: 0.04, week_pct: 0.67,
+                   five_reset: T + 2 * H, week_reset: T + 96 * H });
+  const b = computeBudget(s, T);
+  assert.equal(b.session_used_pct, 4,
+    "Anthropic's own 5h reading is present and must survive an empty local ledger");
+  assert.equal(b.session_wall_pct, 100, "the hard wall is always stated");
+  assert.ok(b.session_advised_pct == null || b.session_advised_pct > 0,
+    "advised is either unknown or a real number, never a silent zero");
+});
