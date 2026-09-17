@@ -1075,6 +1075,9 @@ ${TABS_CSS}
 .bar .num .good{color:var(--green);font-weight:700}
 .bar .num .bad{color:var(--red);font-weight:700}
 .klabel{font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--ink-3);font-family:var(--mono)}
+.accts{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px 18px;font-family:var(--mono);font-size:12.5px;color:#a3abba}
+.accts .h{color:var(--ink);font-weight:700}
+.accts .good{color:var(--green)}.accts .bad{color:var(--red)}
 .warns{margin-top:12px;display:flex;flex-direction:column;gap:7px;font-family:var(--mono);font-size:12.5px}
 .walert{padding:8px 13px;border-radius:9px;line-height:1.5;overflow-wrap:anywhere}
 .walert b{font-weight:700}
@@ -1216,6 +1219,9 @@ td{border-bottom-color:#222b40}
  </div>
 
  <div class="bars" id="bars"></div>
+
+ <!-- every account in the pool: how much week each has, and when a spent one is back -->
+ <div class="accts" id="accts"></div>
 
  <div class="warns" id="warns"></div>
 
@@ -1757,8 +1763,22 @@ if(location.search)history.replaceState(null,'',location.pathname);
     if(pinned)el.scrollTop=el.scrollHeight;
   }
 
+  function renderAccts(){
+    var p=window.__pool;if(!p||!p.members||p.members.length<2){document.getElementById('accts').innerHTML='';return}
+    document.getElementById('accts').innerHTML=p.members.map(function(m){
+      var wk=m.usage_week_pct!=null&&m.usage_week_live!==false?Math.round(m.usage_week_pct*100):null;
+      var walled=wk!=null&&wk>=95;
+      // days+hours, not a rounded "3d": the question this strip answers is exactly when
+      var dh=function(s){var d=Math.floor(s/86400),h=Math.round((s%86400)/3600);return d?d+'d'+(h?h+'h':''):ago(s)};
+      var when=m.week_reset_in_sec!=null?(walled?'<span class="bad">live in '+dh(m.week_reset_in_sec)+'</span>':'resets '+dh(m.week_reset_in_sec)):'';
+      return '<span><span class="h">@'+esc(m.handle)+'</span> week '+(wk!=null?wk+'%':'—')+
+        (m.usage_five_pct!=null?' · 5h '+Math.round(m.usage_five_pct*100)+'%':'')+(when?' · '+when:'')+
+        (m.handle===p.use?' <span class="good">← use</span>':'')+'</span>';
+    }).join('');
+  }
   function tick(){
     fetch('/api/u/${h}/budget').then(function(r){return r.json()}).then(function(j){window.__b=j;window.__bAt=Date.now();renderAll();}).catch(function(){});
+    fetch('/api/u/${h}/pool').then(function(r){return r.json()}).then(function(j){window.__pool=j;renderAccts();}).catch(function(){});
     fetch('/api/u/${h}/feed?n=${MAX_FEED_EVENTS}').then(function(r){return r.json()}).then(function(j){
       window.__ev=(j.events||[]).filter(function(e){return e.billed>0&&e.surface!=='directive'});
       renderAll();renderTerm();
@@ -2635,6 +2655,9 @@ export function createHandler({ store, secretFor = () => null, fallbackSecret = 
           usage_week_pct: mb.usage_week_pct, usage_week_live: mb.usage_week_live,
           weekly_max: mset.weekly_max, last_used: ms.last_used || 0,
           per_diem_pct: mb.per_diem_pct, over_per_diem: mb.over_per_diem,
+          // so a reader can say WHEN a walled member is back, not just that it is walled
+          usage_five_pct: mb.usage_five_pct, usage_five_live: mb.usage_five_live,
+          five_reset_in_sec: mb.five_reset_in_sec, week_reset_in_sec: mb.week_reset_in_sec,
         });
       }
       const { settings } = resolveSettings((await store.load(h)).config || {});
@@ -2643,7 +2666,10 @@ export function createHandler({ store, secretFor = () => null, fallbackSecret = 
         account: acct, strategy: settings.account_strategy,
         use: chosen?.handle || null, why: chosen?.why || null,
         over_ceiling: !!(chosen && rows.every((r) => r.usage_week_pct != null && r.usage_week_live !== false && r.usage_week_pct >= (r.weekly_max ?? settings.weekly_max))),
-        members: chosen?.ranked || rows,
+        // Ranked candidates first (first-fit callers take [0] as before), then every member
+        // the ranking set aside for being over its ceiling — a walled account is still a
+        // member, and the one a reader most wants to see, with its reset countdown.
+        members: chosen ? [...chosen.ranked, ...rows.filter((r) => !chosen.ranked.some((x) => x.handle === r.handle))] : rows,
       });
     }
 
