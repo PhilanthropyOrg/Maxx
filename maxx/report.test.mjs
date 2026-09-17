@@ -63,3 +63,18 @@ test("renders the pool, the total and every finding", () => {
   assert.match(text, /2\.78B tokens across 2 accounts · 80% spread/);
   assert.match(text, /→ /, "every finding carries the move it implies");
 });
+
+test("a walled account says when it is live again", () => {
+  const now = Date.UTC(2026, 8, 17, 17, 0, 0); // 2026-09-17 12:00 CDT
+  const r = weeklyReport([{ ...TGP, weekReset: now / 1000 + 7 * 3600 }, { ...REIF, weekPct: 0.3 }], { now });
+  const f = r.findings.find((x) => x.id === "walled");
+  assert.match(f.text, /live again in 7h/);
+  const out = renderReport(r, { now });
+  assert.match(out, /@reif_tgp .*week 100%.*live in 7h/);
+});
+
+test("an open account shows its week reset too", () => {
+  const now = Date.UTC(2026, 8, 17, 17, 0, 0);
+  const r = weeklyReport([{ ...REIF, weekPct: 0.3, weekReset: now / 1000 + 4 * 86400 + 3 * 3600 }], { now });
+  assert.match(renderReport(r, { now }), /@reif .*week +30%.*resets 4d3h/);
+});

@@ -11,6 +11,14 @@
  */
 
 const pct = (x) => `${Math.round((x ?? 0) * 100)}%`;
+/** "7h", "4d3h", "now" — how long until an epoch-seconds reset. null when unknown. */
+export const untilReset = (epochSec, now = Date.now()) => {
+  if (!Number.isFinite(epochSec) || epochSec <= 0) return null;
+  const m = Math.round((epochSec * 1000 - now) / 60000);
+  if (m <= 0) return "now";
+  const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60;
+  return d ? `${d}d${h}h` : h ? `${h}h` : `${mm}m`;
+};
 const abbr = (n) => {
   n = Math.round(Math.abs(n || 0));
   return n >= 1e9 ? (n / 1e9).toFixed(2) + "B" : n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? Math.round(n / 1e3) + "k" : `${n}`;
@@ -20,7 +28,7 @@ const abbr = (n) => {
  * @param {Array<{handle, weekPct, fivePct, weekBilled, surfaces?: Array<{surface, billed}>}>} accounts
  * @returns {{accounts, totalBilled, spread, findings: Array<{id, text, action}>}}
  */
-export function weeklyReport(accounts = []) {
+export function weeklyReport(accounts = [], { now = Date.now() } = {}) {
   const live = accounts.filter((a) => Number.isFinite(a?.weekPct));
   const totalBilled = accounts.reduce((s, a) => s + (a.weekBilled || 0), 0);
 
@@ -45,9 +53,10 @@ export function weeklyReport(accounts = []) {
 
   for (const a of live) {
     if (a.weekPct >= 0.95) {
+      const again = untilReset(a.weekReset, now);
       findings.push({
         id: "walled",
-        text: `@${a.handle} spent its week (${pct(a.weekPct)}).`,
+        text: `@${a.handle} spent its week (${pct(a.weekPct)})${again ? ` — live again in ${again}` : ""}.`,
         action: live.some((o) => o.weekPct < 0.8)
           ? "Another account still has room — switch rather than wait for the reset."
           : "Every account is near its wall; this week's work is done, not blocked.",
@@ -88,14 +97,16 @@ export function weeklyReport(accounts = []) {
 }
 
 /** The report as text. Kept plain so it works in a terminal, an email, or a commit body. */
-export function renderReport(report, { title = "maxx · your week" } = {}) {
+export function renderReport(report, { title = "maxx · your week", now = Date.now() } = {}) {
   const out = [title, ""];
   if (!report.accounts.length) {
     out.push("  No account has a live usage reading yet. `maxx setup` links one.");
     return out.join("\n");
   }
   for (const a of report.accounts) {
-    out.push(`  @${a.handle.padEnd(12)} week ${String(pct(a.weekPct)).padStart(4)}   5h ${String(pct(a.fivePct)).padStart(4)}   ${abbr(a.weekBilled)} counted`);
+    const again = untilReset(a.weekReset, now);
+    const reset = again ? (a.weekPct >= 0.95 ? `   live in ${again}` : `   resets ${again}`) : "";
+    out.push(`  @${a.handle.padEnd(12)} week ${String(pct(a.weekPct)).padStart(4)}   5h ${String(pct(a.fivePct)).padStart(4)}   ${abbr(a.weekBilled)} counted${reset}`);
   }
   out.push("");
   out.push(`  ${abbr(report.totalBilled)} tokens across ${report.accounts.length} account${report.accounts.length === 1 ? "" : "s"}${report.spread != null ? ` · ${pct(report.spread)} spread` : ""}`);

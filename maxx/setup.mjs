@@ -52,6 +52,8 @@ export async function probeAccount(base, { handle, secret }) {
       weekPct: live ? b.usage_week_pct : undefined,
       fivePct: live ? b.usage_five_pct : undefined,
       weekBilled: b.week_billed || 0,
+      weekReset: b.week_reset,
+      fiveReset: b.five_reset,
       surfaces: (b.surfaces || []).map((s) => ({ surface: s.surface, billed: s.billed_5h || 0 })),
       error: live ? null : "no live /usage anchor",
     };
