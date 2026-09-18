@@ -127,6 +127,7 @@
     <a href="#response" class="sub">Reading the response</a>
     <a href="#handle">Get a handle</a>
     <div class="grp">Reference</div>
+    <a href="#offline">When the server is down</a>
     <a href="#privacy">Privacy</a>
     <a href="#source">Source</a>
   </div>
@@ -310,6 +311,12 @@
     <figcaption>Burn vs. sustainable, the hour the week runs out at this rate, and the cut that would make it.</figcaption>
   </figure>
   <p class="hint">Webhooks for <code>over</code> / <code>recovered</code> / week-80/90/95: <code>POST /api/u/&lt;you&gt;/webhooks</code>. Poll <code>GET /api/u/&lt;you&gt;/budget</code> for the same JSON without MCP.</p>
+
+  <h2 id="offline">When the server is down</h2>
+  <p>maxx keeps working. The statusline, <code>/maxx accounts</code> and <code>/fenix</code> read Anthropic's own rate-limit numbers off each session plus local ledger files — there is no network call on that path, verified with the API blackholed. What needs the tally: claiming a handle at install, the dashboard, the MCP endpoint, and rolling several machines into one number.</p>
+  <div class="callout">
+    <p><strong>The budget gate fails open.</strong> It denies on a real weekly wall and never on its own unreachability. A counter that stops your work because it cannot reach <em>itself</em> is inventing a limit — the one thing this project promises not to do. <code>gate.mjs --fail closed</code> if you want the stricter posture.</p>
+  </div>
 
   <h2 id="privacy">Privacy</h2>
   <p>Local by default. Nothing leaves your machine until you claim a handle. After that, the emitter ships <strong>counts only</strong>: tokens, timestamps, model names, session ids. Never a prompt, never a message, never your code. The emitter never reads it, so it cannot leak it.</p>

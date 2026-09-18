@@ -26,10 +26,23 @@
  *                          (kept for config compatibility; pacing no longer denies).
  *   --weekly-stop <pct>    the hard reserve wall (default 99). Even spree stops at
  *                          this weekly %. Set 90 to always keep a 10% reserve.
- *   --fail open|closed     no fresh verdict: closed (default) denies, open allows.
+ *   --fail open|closed     no fresh verdict: open (default) allows, closed denies.
  *
- * Fail-closed: no fresh verdict (server unreachable AND cache >10m old) → deny.
- * That is the whole point — an invisible budget must read as "no budget".
+ * Fail-OPEN by default, and this is the project's own rule applied to itself: "maxx counts,
+ * Anthropic limits. Nothing maxx computes can deny you work." A gate that denies because it
+ * cannot reach its own tally is maxx inventing a limit — the exact thing the README promises it
+ * will never do, and the failure is the counter's, not the user's.
+ *
+ * It was fail-closed on the reasoning that "an invisible budget must read as no budget". That is
+ * a sound instinct about MONEY and a bad one here, because nothing maxx denies was ever going to
+ * overspend anything: Anthropic's own 5h/weekly windows enforce themselves by rejecting calls.
+ * The only thing fail-closed actually stops is the user working while the tally is unreachable.
+ *
+ * Seen live 2026-09-18: api.meetmaxx.co lost its container, image and volume at once and was 502
+ * for hours. Every Agent/Task/Workflow spawn on a default install would have been denied for that
+ * whole window, with maxx named as the reason — over an outage in maxx's own infrastructure.
+ *
+ * A real `over` verdict still denies. What no longer denies is not knowing.
  */
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from "node:fs";
 import { homedir, hostname } from "node:os";
@@ -109,7 +122,7 @@ const pol = {
   mode: gate.mode || "paced",
   margin: gate.margin_pct || 0,
   weeklyStop: gate.weekly_stop_pct ?? 99,
-  fail: gate.fail_mode || "closed",
+  fail: gate.fail_mode || "open",
 };
 const polLine = () => `mode=${pol.mode} margin=${pol.margin}% weekly_stop=${pol.weeklyStop}% fail=${pol.fail}`;
 const savePol = () => writeFileSync(GATE, JSON.stringify({

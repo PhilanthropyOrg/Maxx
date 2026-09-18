@@ -40,13 +40,30 @@ async function hook(home, url, { tool, session }) {
 
 // The whole point of rise: /clear is a keystroke no hook can send, so an unattended session
 
-// Fail-closed is the point of a budget gate, but the denial is the only thing the customer
-// sees during an outage. If it does not name a way out it reads as "maxx broke my agents".
-test("gate: an unreachable tally denies with a message the customer can act on", async () => {
+// maxx's own outage must never be what stops the work. The README's promise is "maxx counts,
+// Anthropic limits — nothing here can deny you work", and a gate that denies because it cannot
+// reach its OWN tally is maxx inventing a limit. Nothing it blocks was going to overspend
+// anything either: Anthropic's windows enforce themselves by rejecting the call.
+//
+// Seen live 2026-09-18: api.meetmaxx.co lost container, image and volume at once and was 502 for
+// hours. Under the old fail-closed default every Agent/Task/Workflow spawn on a default install
+// would have been denied for that whole window, naming maxx as the reason.
+test("gate: an unreachable tally does NOT deny — maxx's outage is not the user's problem", async () => {
   // nothing listening on this port, and a fresh HOME means no cached verdict to fall back on
   const out = await hook(makeHome(), "http://127.0.0.1:1", { tool: "Task", session: "s-outage" });
+  assert.equal(out, "", `an unreachable tally must allow, got: ${out}`);
+});
+
+// …but an explicit fail-closed still denies, and that denial must name a way out: during an
+// outage the message is the only thing the customer sees, and one with no escape hatch is
+// indistinguishable from a broken tool.
+test("gate: --fail closed still denies, with a message the customer can act on", async () => {
+  const home = makeHome();
+  writeFileSync(path.join(home, ".maxx", "gate.json"),
+    JSON.stringify({ enabled: true, mode: "paced", fail_mode: "closed" }));
+  const out = await hook(home, "http://127.0.0.1:1", { tool: "Task", session: "s-outage-closed" });
   const reason = JSON.parse(out).hookSpecificOutput.permissionDecisionReason;
-  assert.match(reason, /permissionDecision|cannot reach|unreachable/i);
+  assert.match(reason, /cannot reach|unreachable/i);
   assert.match(reason, /--fail open/, "a denial with no escape hatch is indistinguishable from a broken tool");
   assert.match(reason, /gate\.mjs/, "name the command, not just the flag");
 });

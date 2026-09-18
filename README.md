@@ -131,6 +131,18 @@ the installer's default), it checks in with the server every 30 minutes and rein
 the moment a new version ships — same command as above, run for you. Nothing to remember, no
 cron to set up. A dev checkout (`--link`) is exempt; it's never overwritten.
 
+## When the server is down
+
+maxx keeps working. The statusline, `/maxx accounts` and `/fenix` read Anthropic's own rate-limit
+numbers off each session plus local ledger files — no network call on that path, verified with the
+API blackholed. What needs the tally: claiming a handle at install, the dashboard, the MCP
+endpoint, and rolling several machines into one number.
+
+The budget gate **fails open**. It denies on a real weekly wall and never on its own
+unreachability — a counter that stops your work because it cannot reach itself is inventing a
+limit, which is the one thing this project promises not to do. `gate.mjs --fail closed` if you
+want the stricter posture.
+
 ## Your stuff stays yours
 
 Local by default — nothing leaves your machine until you claim a handle. After that: counts only
