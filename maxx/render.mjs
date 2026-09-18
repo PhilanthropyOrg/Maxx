@@ -747,6 +747,47 @@ function main() {
   const wMinLeft = wStat.secLeft > 0 ? wStat.secLeft / 60 : 0;
   const localPace = wMinLeft > 0 ? wStat.headroom / wMinLeft : 0;
   const netPerMin = gcFresh ? gc.b.net_per_min : Math.round(localPace - (burn5 || 0) / 5);
+  // ── runway: the week in the unit the decision is actually made in ──
+  // A percentage answers "where am I", which is the wrong question at 3am on Thursday. The
+  // question is "do I make it to reset", and that is two hour-figures: the CLOCK (wall-time until
+  // the week resets) against the RUNWAY (how long the budget lasts at the rate I am burning it).
+  // runway ≥ clock → you arrive at the reset with budget to spare. runway < clock → you run dry
+  // early, and the gap is exactly how many hours of the week you will spend locked out.
+  //
+  // Burn is the 5-minute rate, not the week's average: the average is a fact about the past and
+  // cannot respond to easing off in the last ten minutes, which is the one control the user has.
+  // A 5-minute window is jumpy by nature — hence the delta below is what gets read, not the
+  // absolute. Idle (burn 0) is not "infinite runway", it is "no rate to project from": null, and
+  // the cell falls back to the clock alone rather than printing a fantasy.
+  //
+  // DEFLATED, and this is load-bearing. headroom is in Anthropic-charged units (cap7s × their %),
+  // while burn5 is a raw bucket sum that counts cache reads at full weight. Dividing one by the
+  // other straight looks right and is inert: cap7s is INFERRED as tok7 ÷ their %, so a ledger that
+  // is twice as large produces a cap twice as large, the two scales cancel, and runway comes out
+  // the SAME number at every burn rate. Measured before this fix: 3.55h at 1k, 100k and 2M per
+  // 5 min — a 2000× range projecting one constant, a number that looks live and answers nothing.
+  // `f` is the same measured deflation liveUsed uses (Anthropic-charged tokens per maxx-counted
+  // token), so both sides of the division are finally in one unit.
+  const burnF = cap7s > 0 && tok7 > 0 ? Math.max(0, Math.min(1, (week * cap7s) / tok7)) : 1;
+  const burnPerHour = burn5 != null && burn5 > 0 ? (burn5 / 5) * 60 * burnF : 0;
+  const clockH = wStat.secLeft > 0 ? wStat.secLeft / 3600 : null;
+  const runwayH = burnPerHour > 0 && wStat.headroom > 0 ? wStat.headroom / burnPerHour : null;
+  // ── the delta: did the last minute buy runway or spend it ──
+  // The absolute runway jitters with the 5-min burn window, so the number that carries the signal
+  // is its CHANGE against the previous render. + = eased off, bought hours back. − = pushed, and
+  // this is the cost. Compared against the last reading in status.json (the same file this render
+  // is about to rewrite), so it survives across renders without new state.
+  //
+  // Only meaningful against a reading from the same week window and a recent one: a reset makes
+  // the comparison meaningless (headroom jumps to full), and a stale reading makes a 40-hour
+  // "delta" out of two unrelated moments. 15 minutes is the ceiling — past that the two readings
+  // are not the same behaviour any more.
+  const prevStatus = readJSON(MAXX("status.json"), {});
+  const prevRw = prevStatus.runway;
+  const sameWindow = prevRw && prevRw.resetAt === wStat.resetAt;
+  const prevFresh = prevRw && Date.now() - (prevRw.ts || 0) < 15 * 60_000;
+  const runwayDeltaH = runwayH != null && sameWindow && prevFresh && prevRw.hours != null
+    ? runwayH - prevRw.hours : null;
   // is the weekly the binding wall (realMax below the raw 5h cap)? = the session allowance is being
   // held down to protect the week. Kept for agents; no longer a separate tag on the bar.
   sStat.weeklyPaced = !!(haveWeek && cap5s && realMax < cap5s);
@@ -805,6 +846,11 @@ function main() {
     sessionsLeftInWeek: Math.round(sessionsLeft * 10) / 10, // 5h windows remaining until the weekly resets
     burn5m: burn5 != null ? Math.round(burn5) : null,       // gross tokens spent in the last 5 min (≥ 0)
     netPerMin,                                              // account-wide net (gate-cache when fresh) — one net, every surface
+    // the week in hours: clock = wall-time to reset, hours = how long the budget lasts at the
+    // current burn, deltaH = how much runway the last reading bought (+) or spent (−). ts/resetAt
+    // are what the NEXT render checks before trusting `hours` as a comparison point.
+    runway: { ts: Date.now(), resetAt: wStat.resetAt, hours: runwayH, clockH, deltaH: runwayDeltaH },
+    sessionId: sid,                                         // full id — the bar prints 8 chars of it
   };
   try { writeFileSync(MAXX("status.json"), JSON.stringify(status)); } catch {}
   if (wantStatus) { process.stdout.write(JSON.stringify(status, null, 2) + "\n"); return; }
@@ -992,9 +1038,41 @@ function main() {
   const weekP = weekLive != null ? Math.round(weekLive * 100) : haveWeek ? Math.round(week * 100) : null;
   if (weekP != null) {
     const weekLine = weekResetOk && haveWeek ? Math.round(e7 * 100) : null;
-    put(3, 0, pair("week", weekP, weekLine, {
-      over: weekLine != null && weekP - weekLine > 5, wall: weekP >= 95 }));
-    if (wStat.resetIn) put(3, 5, faint(DIM, wStat.resetIn));
+    // ── the week, in hours ──
+    // A percent answers "where am I in the week", which is not the question. The question is "do I
+    // make it to the reset", and that is two hour-figures: CLOCK (wall-time until the week resets)
+    // against RUNWAY (how long the budget lasts at the rate it is being burned).
+    //
+    //   week 92h/75h −2h   → clock 92h, budget dies in 75h, and the last reading cost 2 hours.
+    //
+    // The verdict is the comparison, and it is the whole point: runway ≥ clock means you arrive at
+    // the reset with budget in hand, so GREEN; runway < clock means you run dry early and the gap
+    // is how long you sit locked out, so RED. Colour lands on the runway — the clock is a fact
+    // about the calendar and never changes colour, the same split the used/line pair uses.
+    //
+    // Idle burns nothing, so there is no rate to project and runway is null: print the clock alone
+    // rather than "∞" or a stale projection. The percent is kept as the fallback for the case where
+    // there is no reset clock at all, since a number beats an empty cell.
+    const clock = clockH != null ? Math.max(0, Math.round(clockH)) : null;
+    const rw = runwayH != null ? Math.max(0, Math.round(runwayH)) : null;
+    if (clock != null) {
+      // 5% dead band on the comparison, so a wobble in the 5-min burn either side of "exactly
+      // makes it" does not flip the cell red and back on consecutive renders.
+      const dry = rw != null && rw < clockH * 0.95;
+      put(3, 0, faint(DIM, "week ") + fg(DIM, `${clock}h`)
+        + (rw != null ? faint(DIM, "/") + fg(dry ? RED : GREEN, `${rw}h`) : ""));
+    } else {
+      put(3, 0, faint(DIM, "week ") + fg(INK, weekP + "%"));
+    }
+    // ── the delta — the only number here that responds to easing off in the last ten minutes ──
+    // Runway jitters with the 5-minute burn window; its CHANGE is the signal. + = bought hours
+    // back (green, you did the right thing), − = spent them (amber, not red: red belongs to the
+    // verdict above, and a hot minute inside a healthy week is not an emergency). Sub-hour moves
+    // are noise and print nothing, which keeps the cell still while the burn holds steady.
+    if (runwayDeltaH != null && Math.abs(runwayDeltaH) >= 1) {
+      const d = Math.round(runwayDeltaH);
+      put(3, 5, fg(d > 0 ? GREEN : AMBER, `${d > 0 ? "+" : ""}${d}h`));
+    }
   }
 
   // ── who and where, TRAILING ──
@@ -1005,7 +1083,14 @@ function main() {
   const repo = path.basename((p.workspace || {}).project_dir || p.cwd || "");
   if (repo) put(4, 9, faint(DIM, trunc(repo, 20)));
   if (branch) put(4, 8, faint(DIM, trunc(branch, 28)));
-  if (sid) put(4, 10, faint(DIM, String(sid).slice(0, 4)));
+  // EIGHT chars, not four. The point of printing an id at all is to name THIS chat when talking to
+  // another one ("the fix is in 7bf3a19c"), and that only works if the id on the bar is the same
+  // string the other surfaces use. The owner dashboard names a session by an 8-char slice
+  // (server/handler.mjs, top_burners), so four here could not be pasted anywhere — it was a
+  // disambiguator between two local panes, not an identifier. Four hex chars is also 65k values:
+  // across a day of sessions a collision is a real possibility, and an id that might name two
+  // different chats is worse than no id. Eight matches the dashboard and makes it a true handle.
+  if (sid) put(4, 10, faint(DIM, String(sid).slice(0, 8)));
 
   // the 5h wall: Claude has stopped you anyway. It replaces the money walls and the trailing
   // context — nothing else matters while you are locked out — but never ctx (you can still act on
