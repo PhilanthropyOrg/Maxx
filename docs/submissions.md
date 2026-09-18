@@ -7,19 +7,41 @@ Repo: `github.com/PhilanthropyOrg/Maxx` · Install: `/plugin marketplace add Phi
 
 ## Ready-to-paste assets
 
+*Refreshed 2026-09-18. The old copy described "race-track meters" and zero-egress as the headline;
+both are stale — the meters were replaced by one reading per wall, and the pitch is now the
+accounts view plus the fenix loop.*
+
 **One-liner:**
-> maxx — a zero-egress, live token-budget statusline for Claude Code. Your session (5h) and weekly (7d) limits as race-track meters that recover as you rest, with cushion / over-pace in tokens, burn momentum, and reset flags. Pure Node, one-line install, `/usage`-accurate. Plus a `/maxx` usage card.
+> maxx — all your Claude accounts in one place. A statusline that says how long the week lasts at
+> the rate you're burning it, `/maxx accounts` for every login you're signed into (which is walled,
+> when it frees up), and `/fenix` to carry a thread across the `/clear` that empties it. Local by
+> default: no account, no network, nothing to be down.
 
 **Short blurb (directories):**
-> A build-companion statusline for Claude Code: session + weekly limits shown as glanceable race-track meters (start → the wall), the pace line is where the colour turns, cushion/over-pace in tokens, live burn momentum, and a reset flag — re-summed every second so you watch the budget recover while you rest. Zero egress (nothing leaves the box), pure Node, no binary.
+> Most people running Claude Code seriously are signed into more than one account, and no screen
+> shows them together — so you find out one is walled by hitting the wall. maxx is that screen. The
+> statusline reads the week as clock-against-runway (hours to reset vs hours the budget actually
+> lasts at your current burn), scores how full the chat is against its hand-off line, and when that
+> line is close, fenix writes a handoff so the `/clear` costs you the tokens and not the work.
+> Numbers come from Anthropic's own per-session limits, already summed across every machine on the
+> login — so it needs no account and no server.
 
 **Show HN title:**
-> Show HN: maxx – a zero-egress token-budget statusline for Claude Code
+> Show HN: maxx – see every Claude account you're signed into, and when the week runs dry
 
-**GitHub topics to add now (free discoverability):**
-`claude-code` · `claude-plugin` · `claude-code-plugins-marketplace` · `statusline` · `cli` · `tokens` · `developer-tools`
+**The demo line (what to paste in a comment):**
+> ```
+> @you · opus │ chat 94% │ session 12% · 2h54m │ week 150h/11h │ Maxx · main · f6a931d9 │ /maxx
+> ```
+> `week 150h/11h` = 150 hours until the weekly cap resets, 11 hours of budget left at the current
+> burn. Runway short of the clock means you run dry early, and the gap is how long you sit locked out.
 
-**Angles that land:** zero egress · budget meters that recover as you rest · pure Node / one-line install · `/usage`-accurate quotas.
+**GitHub topics:**
+`claude-code` · `claude-plugin` · `claude-code-plugins-marketplace` · `statusline` · `cli` ·
+`tokens` · `developer-tools` · `context-management`
+
+**Angles that land:** multi-account visibility (nothing else shows it) · the week in hours, not a
+percentage · handoff across `/clear` · local by default, no account required.
 
 ---
 
