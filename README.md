@@ -77,7 +77,7 @@ Restart Claude Code and the bar is there. That is the whole install.
 <summary>Or install as a Claude Code plugin</summary>
 
 ```
-/plugin marketplace add PhilanthropyOrg/Maxx
+/plugin marketplace add reif-y/Maxx
 /plugin install maxx
 /maxx wire
 ```

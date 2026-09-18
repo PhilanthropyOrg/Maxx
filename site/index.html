@@ -136,7 +136,7 @@
 <main id="top">
   <h1>maxx</h1>
   <p class="sub">All your Claude accounts in one place. What each one has left, which is walled, and how long the week lasts at the rate you are burning it.</p>
-  <p class="hint"><a href="#install">Install →</a> &nbsp;·&nbsp; <a href="#statusline">See the statusline →</a> &nbsp;·&nbsp; <a href="#mcp">MCP endpoint for agents →</a> &nbsp;·&nbsp; <a href="https://github.com/PhilanthropyOrg/Maxx">GitHub →</a></p>
+  <p class="hint"><a href="#install">Install →</a> &nbsp;·&nbsp; <a href="#statusline">See the statusline →</a> &nbsp;·&nbsp; <a href="#mcp">MCP endpoint for agents →</a> &nbsp;·&nbsp; <a href="https://github.com/reif-y/Maxx">GitHub →</a></p>
   <div class="term" style="margin:26px 0 8px;line-height:1.75"><span style="opacity:.75;color:rgb(39,95,228)">@reif_tgp</span><span style="opacity:.75;color:rgb(35,151,74)">  ● LIVE</span><br><span style="opacity:.75;color:rgb(129,131,135)">&nbsp;&nbsp; ~/.claude  ·  reif@thegoodproject.net</span><br><span style="opacity:.75;color:rgb(129,131,135)">&nbsp;&nbsp; week 6%  ·  5h 11%  ·  week resets in 150h</span><br><br><span style="opacity:.75;color:rgb(39,95,228)">@reif</span><br><span style="opacity:.75;color:rgb(129,131,135)">&nbsp;&nbsp; ~/.claude-gmail  ·  reiftauati@gmail.com</span><br><span style="opacity:.75;color:rgb(129,131,135)">&nbsp;&nbsp; week 6%  ·  </span><span style="opacity:.75;color:rgb(197,57,57)">5h 94%  ·  WALLED · back in 1h20m</span><br><br><span style="opacity:.75;color:rgb(129,131,135)">&nbsp;&nbsp; 1 walled, 1 with room — </span><span style="opacity:.75;color:rgb(55,58,65)">eval "$(maxx switch)"</span><span style="opacity:.75;color:rgb(129,131,135)"> moves to @reif_tgp.</span></div>
   <p class="hint" style="margin-top:6px"><code>/maxx accounts</code> — one row per login, and the thing no other surface tells you: when a walled account frees up.</p>
 
@@ -257,7 +257,7 @@
   <p>Restart Claude Code and the bar is there. Requires Node 18+.</p>
   <p class="hint">Stays current on its own: a background shipper checks in every 30 minutes and reinstalls itself when a new version ships. Nothing to remember.</p>
   <p>Or install it as a Claude Code plugin:</p>
-  <pre><code>/plugin marketplace add PhilanthropyOrg/Maxx
+  <pre><code>/plugin marketplace add reif-y/Maxx
 /plugin install maxx
 /maxx wire</code></pre>
   <p class="hint">A plugin can place skills but cannot write to <code>settings.json</code>, so <code>/plugin install</code> alone gives you the commands with no statusline and no hooks. <code>/maxx wire</code> adds them. Run <code>/maxx</code> without it and the card tells you what is missing.</p>
@@ -326,7 +326,7 @@
   <p>Public dashboards redact session names. Your secret never appears on any page after signup.</p>
 
   <h2 id="source">Source</h2>
-  <p>MIT. <a href="https://github.com/PhilanthropyOrg/Maxx">github.com/PhilanthropyOrg/Maxx</a></p>
+  <p>MIT. <a href="https://github.com/reif-y/Maxx">github.com/reif-y/Maxx</a></p>
   <ul>
     <li><code>maxx/emit.mjs</code> ships counts from a machine.</li>
     <li><code>maxx/render.mjs</code> draws the statusline. <code>fenix/fenix.mjs</code> writes and resumes the handoffs.</li>

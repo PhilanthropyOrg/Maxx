@@ -1,7 +1,7 @@
 # maxx — where to submit
 
 A prioritized, actionable checklist for getting **maxx** in front of people building tools.
-Repo: `github.com/PhilanthropyOrg/Maxx` · Install: `/plugin marketplace add PhilanthropyOrg/Maxx` → `/plugin install maxx@maxx`
+Repo: `github.com/reif-y/Maxx` · Install: `/plugin marketplace add reif-y/Maxx` → `/plugin install maxx@maxx`
 
 ---
 
