@@ -43,6 +43,11 @@ function parseArgs(argv) {
     if (a === "session") out.cmd = "session";
     else if (a === "setup") out.cmd = "setup";
     else if (a === "switch" || a === "use") out.cmd = "switch";
+    else if (a === "accounts" || a === "logins") out.cmd = "accounts";
+    // `who <id>` resolves a session tag from the statusline back to a session. The bar prints 8
+    // chars of a uuid, which is a PREFIX — enough to name a chat to a peer, useless without
+    // something that turns it back into "which repo, which account, still live?".
+    else if (a === "who" || a === "chat") { out.cmd = "who"; out.who = argv[i + 1] && !argv[i + 1].startsWith("-") ? argv[++i] : ""; }
     else if (a === "report" || a === "week") out.cmd = "report";
     else if (a === "turn") out.cmd = "turn";
     else if (a === "refresh") out.cmd = "refresh";
@@ -543,6 +548,19 @@ if (isMainModule()) {
         if (cmd) w(cmd);
         else { console.error(`  @${pick.handle} has no known CLAUDE_CONFIG_DIR — set MAXX_DIR_${pick.handle.toUpperCase()}`); process.exitCode = 1; }
       }
+    } else if (a.cmd === "accounts") {
+      // Local-only and instant: reads the same per-login rl.json the statusline keeps, so it works
+      // offline and needs no handle/secret. `switch` is the one that goes to the server.
+      const { buildRows, renderAccounts } = await import("./accounts.mjs");
+      let liveUuid = null;
+      try {
+        liveUuid = JSON.parse(readFileSync(path.join(process.env.CLAUDE_CONFIG_DIR || path.join(HOME, ".claude"), ".claude.json"), "utf8")).oauthAccount?.accountUuid || null;
+      } catch {}
+      w(renderAccounts(buildRows(HOME, Date.now() / 1000, liveUuid)));
+    } else if (a.cmd === "who") {
+      const { resolveSession, renderWho } = await import("./accounts.mjs");
+      if (!a.who) w("  usage: maxx who <id>   (the 8-char tag from the statusline)");
+      else w(renderWho(resolveSession(a.who, HOME), Date.now()));
     } else if (a.cmd === "report") {
       const { readAccounts, probeAccount } = await import("./setup.mjs");
       const { weeklyReport, renderReport } = await import("./report.mjs");

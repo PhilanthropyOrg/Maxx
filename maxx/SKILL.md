@@ -22,6 +22,8 @@ Reads only token/usage metadata — never prompt or message content.
 /maxx refresh    # stuck or stale bar: clear the derived caches, rebuild the window
 /maxx dark       # dark statusline theme — /maxx light switches back, /maxx auto adopts the terminal's own colors
 /maxx config     # show settings, secrets masked · `config <key> <value>` sets (dotted keys ok)
+/maxx accounts   # every login on this box: week/5h used, which is live, which is walled and when it frees up
+/maxx who <id>   # resolve the 8-char session tag from the statusline back to a repo + account + full id
 ```
 
 ## What to do
@@ -35,6 +37,8 @@ Reads only token/usage metadata — never prompt or message content.
    - Session:   `node ~/.claude/skills/maxx/tracker.mjs session`   (when the user says `session`)
    - Setup:     `node ~/.claude/skills/maxx/tracker.mjs setup`   (walks every account, links the ones not reporting, prints the week)
    - Switch:    `node ~/.claude/skills/maxx/tracker.mjs switch`   (the account with the most room left; prints only `export CLAUDE_CONFIG_DIR=…` when piped, so `eval "$(maxx switch)"` works)
+   - Accounts:  `node ~/.claude/skills/maxx/tracker.mjs accounts`   (when the user says `accounts` / "what logins do I have"; local + instant, no network)
+   - Who:       `node ~/.claude/skills/maxx/tracker.mjs who <id>`   (the 8-char tag the statusline prints — resolves it to repo, account, chat%, full id)
    - Report:    `node ~/.claude/skills/maxx/tracker.mjs report`   (where the week went, per account, with the move each finding implies)
    - JSON:      `node ~/.claude/skills/maxx/tracker.mjs --json`
    - Nazi:      `node ~/.claude/skills/maxx/limit.mjs --nazi`   (when the user says `nazi`; add `--json` for the machine form)
