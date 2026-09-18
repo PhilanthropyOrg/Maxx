@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>maxx — one tally for what you can spend right now.</title>
-<meta name="description" content="Give any Claude Code agent an MCP endpoint and it can check its own budget before it burns it. Counts, never gates.">
-<meta property="og:title" content="maxx — one tally for what you can spend right now.">
-<meta property="og:description" content="Give any Claude Code agent an MCP endpoint and it can check its own budget before it burns it. Counts, never gates.">
+<title>maxx — all your Claude accounts in one place</title>
+<meta name="description" content="See every Claude account you are logged into — what each has left, which is walled and when it frees up — plus a statusline that says how long the week lasts at your current burn.">
+<meta property="og:title" content="maxx — all your Claude accounts in one place">
+<meta property="og:description" content="See every Claude account you are logged into — what each has left, which is walled and when it frees up — plus a statusline that says how long the week lasts at your current burn.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://meetmaxx.co/">
 <meta property="og:image" content="https://meetmaxx.co/og-card.png">
@@ -82,6 +82,7 @@
   @media(prefers-color-scheme:dark){td:first-child{color:var(--brand)}}
 
   .term{background:var(--term-bg);border:1px solid var(--term-line);border-radius:var(--radius);padding:14px 16px;font-family:var(--mono);font-size:13.5px;overflow-x:auto;white-space:nowrap;margin:14px 0}
+  .term.wrap{white-space:normal;overflow-x:visible;line-height:1.65}
   .term .prompt{display:block;margin-bottom:10px;color:#8a8b8f}
   .term .prompt::before{content:"❯ ";color:var(--brand)}
   @media(prefers-color-scheme:dark){.term span[style*="rgb(55, 58, 65)"]{color:#d8d8e0!important}.term span[style*="rgb(39, 95, 228)"]{color:#8ea6ff!important}}
@@ -114,16 +115,17 @@
     <a href="#what">What maxx is</a>
     <a href="#problem">The problem</a>
     <a href="#how">How it works</a>
+    <div class="grp">For humans</div>
+    <a href="#install">Install</a>
+    <a href="#fenix" class="sub">The other half: /fenix</a>
+    <a href="#statusline" class="sub">The statusline</a>
+    <a href="#commands" class="sub">/maxx commands</a>
+    <a href="#dash">Dashboard</a>
     <div class="grp">For agents</div>
     <a href="#mcp">MCP endpoint</a>
     <a href="#tools" class="sub">Tools</a>
     <a href="#response" class="sub">Reading the response</a>
     <a href="#handle">Get a handle</a>
-    <div class="grp">For humans</div>
-    <a href="#install">Install</a>
-    <a href="#statusline" class="sub">The statusline</a>
-    <a href="#commands" class="sub">/maxx commands</a>
-    <a href="#dash">Dashboard</a>
     <div class="grp">Reference</div>
     <a href="#privacy">Privacy</a>
     <a href="#source">Source</a>
@@ -132,11 +134,19 @@
 
 <main id="top">
   <h1>maxx</h1>
-  <p class="sub">One tally for what a Claude Code session can safely spend right now. Every machine, every cloud agent, one number.</p>
-  <p class="hint"><a href="#mcp">Jump to the MCP endpoint →</a> &nbsp;·&nbsp; <a href="#install">Install the statusline →</a> &nbsp;·&nbsp; <a href="https://github.com/The-Good-Project-Team/Maxx">GitHub →</a></p>
+  <p class="sub">All your Claude accounts in one place. What each one has left, which is walled, and how long the week lasts at the rate you are burning it.</p>
+  <p class="hint"><a href="#install">Install →</a> &nbsp;·&nbsp; <a href="#statusline">See the statusline →</a> &nbsp;·&nbsp; <a href="#mcp">MCP endpoint for agents →</a> &nbsp;·&nbsp; <a href="https://github.com/PhilanthropyOrg/Maxx">GitHub →</a></p>
+  <figure style="margin:28px 0 8px">
+    <img src="card-hero.gif" alt="The maxx usage card: 1,571,920,589 lifetime tokens over an all-time chart, with session and week rails underneath showing what is left and what is banked, and a live feed of machines reporting in." width="1100" height="768" loading="eager" style="width:100%;height:auto;border-radius:var(--radius);border:1px solid var(--term-line)">
+    <figcaption>Every machine and every cloud agent on one Claude account, counted and anchored to Anthropic's own <code>/usage</code>.</figcaption>
+  </figure>
 
   <h2 id="what">What maxx is</h2>
-  <p>maxx is a <strong>counter</strong>. It reads token usage from every Claude Code session on every machine you run, prices each token by model, and turns that into one question with one answer: <em>how much can this session spend right now without ending the week early?</em></p>
+  <p>Most people running Claude Code seriously are signed into more than one account. There is no screen anywhere that shows them together — so you find out one is walled by hitting the wall, and you find out another sat idle all day by never finding out.</p>
+  <p><code>/maxx accounts</code> is that screen:</p>
+  <div class="term" style="line-height:1.7"><span style="opacity:.75;color:rgb(39,95,228)">@reif_tgp</span><span style="opacity:.75;color:rgb(35,151,74)">  ● LIVE</span><br><span style="opacity:.75;color:rgb(129,131,135)">&nbsp;&nbsp; ~/.claude  ·  reif@thegoodproject.net</span><br><span style="opacity:.75;color:rgb(129,131,135)">&nbsp;&nbsp; week 6%  ·  5h 11%  ·  week resets in 150h</span><br><br><span style="opacity:.75;color:rgb(39,95,228)">@reif</span><br><span style="opacity:.75;color:rgb(129,131,135)">&nbsp;&nbsp; ~/.claude-gmail  ·  reiftauati@gmail.com</span><br><span style="opacity:.75;color:rgb(129,131,135)">&nbsp;&nbsp; week 6%  ·  </span><span style="opacity:.75;color:rgb(197,57,57)">5h 94%  ·  WALLED · back in 1h20m</span></div>
+  <p class="hint">One row per login: what each has spent in both windows, which one this session is on, and — the thing no other surface tells you — when a walled account frees up. Local and instant; it reads the same cache the statusline does, so it works offline.</p>
+  <p>Underneath, maxx is a <strong>counter</strong>. It reads token usage from every Claude Code session on every machine you run, prices each token by model, and turns that into one question with one answer: <em>how much can this session spend right now without ending the week early?</em></p>
   <p>It answers as a rate. Your burn in percent-of-week per hour, against the rate that spends the week exactly by its reset. When you are over, it tells you the hour you run out.</p>
   <div class="callout">
     <p><strong>maxx counts. Anthropic limits.</strong> Nothing maxx computes can deny you work. The only things that stop a call are Anthropic's own 5-hour and 7-day windows, and they enforce themselves by rejecting it. A counter that can deny is a limit nobody agreed to.</p>
@@ -245,14 +255,25 @@
   </div>
 
   <h2 id="install">Install (humans)</h2>
-  <p>One line. It installs the emitter, the statusline, and the <code>/maxx</code> skill, and claims a handle for you if you don't have one.</p>
+  <p>One line. It installs the emitter, the statusline, the <code>/maxx</code> and <code>/fenix</code> skills, and claims a handle for you if you don't have one.</p>
   <div class="copybar"><code><span class="p">$</span> curl -fsSL https://meetmaxx.co/install | bash</code><button data-copy="curl -fsSL https://meetmaxx.co/install | bash">Copy</button></div>
-  <p>Restart Claude Code. Requires Node 18+.</p>
+  <p>Restart Claude Code and the bar is there. Requires Node 18+.</p>
   <p class="hint">Stays current on its own: a background shipper checks in every 30 minutes and reinstalls itself when a new version ships. Nothing to remember.</p>
+  <p>Or install it as a Claude Code plugin:</p>
+  <pre><code>/plugin marketplace add PhilanthropyOrg/Maxx
+/plugin install maxx
+/maxx wire</code></pre>
+  <p class="hint">A plugin can place skills but cannot write to <code>settings.json</code>, so <code>/plugin install</code> alone gives you the commands with no statusline and no hooks. <code>/maxx wire</code> adds them. Run <code>/maxx</code> without it and the card tells you what is missing.</p>
+
+  <h3 id="fenix">The other half: /fenix</h3>
+  <p>A chat that fills its context window is normally a total loss. You <code>/clear</code>, and the next session starts from nothing — so you spend the first ten turns re-explaining where you were.</p>
+  <p>maxx already knows how full the chat is. When it nears the line, fenix says so on its own:</p>
+  <div class="term wrap"><span style="opacity:.75;color:rgb(129,131,135)">fenix: chat </span><span style="opacity:.75;color:rgb(197,57,57)">87%</span><span style="opacity:.75;color:rgb(129,131,135)"> of its hand-off line. Run /fenix to write the handoff, then /clear — the next session resumes this thread automatically.</span></div>
+  <p>Type <code>/fenix</code>, then <code>/clear</code>. The next session in that directory wakes up already holding the branch, the uncommitted files, the open PRs and what you were in the middle of. The clear costs you the tokens and not the work.</p>
 
   <h3 id="statusline">The statusline</h3>
   <p>One line at the bottom of every Claude Code session. Numbers lead, identity trails.</p>
-  <div class="term"><span class="prompt">claude</span><span style="opacity:.75;color:rgb(39,95,228)">@reif_tgp</span><span style="opacity:.75;color:rgb(168,169,172)"> · </span><span style="opacity:.75;color:rgb(129,131,135)">fable</span><span style="opacity:.75;color:rgb(129,131,135)">  │  </span><span style="opacity:.75;color:rgb(129,131,135)">chat </span><span style="opacity:.75;color:rgb(35,151,74)">40%</span><span style="opacity:.75;color:rgb(129,131,135)">  │  </span><span style="opacity:.75;color:rgb(129,131,135)">session </span><span style="opacity:.75;color:rgb(55,58,65)">11%</span><span style="opacity:.75;color:rgb(168,169,172)"> · </span><span style="opacity:.75;color:rgb(129,131,135)">1h22m</span><span style="opacity:.75;color:rgb(129,131,135)">  │  </span><span style="opacity:.75;color:rgb(129,131,135)">week </span><span style="opacity:.75;color:rgb(35,151,74)">104%</span><span style="opacity:.75;color:rgb(168,169,172)"> · </span><span style="opacity:.75;color:rgb(129,131,135)">79h</span><span style="opacity:.75;color:rgb(129,131,135)">  │  </span><span style="font-weight:700;opacity:.75;color:rgb(39,95,228)">/maxx</span></div>
+  <div class="term"><span class="prompt">claude</span><span style="opacity:.75;color:rgb(39,95,228)">@reif_tgp</span><span style="opacity:.75;color:rgb(168,169,172)"> · </span><span style="opacity:.75;color:rgb(129,131,135)">fable</span><span style="opacity:.75;color:rgb(129,131,135)">  │  </span><span style="opacity:.75;color:rgb(129,131,135)">chat </span><span style="opacity:.75;color:rgb(35,151,74)">40%</span><span style="opacity:.75;color:rgb(129,131,135)">  │  </span><span style="opacity:.75;color:rgb(129,131,135)">session </span><span style="opacity:.75;color:rgb(55,58,65)">11%</span><span style="opacity:.75;color:rgb(168,169,172)"> · </span><span style="opacity:.75;color:rgb(129,131,135)">1h22m</span><span style="opacity:.75;color:rgb(129,131,135)">  │  </span><span style="opacity:.75;color:rgb(129,131,135)">week </span><span style="opacity:.75;color:rgb(129,131,135)">151h</span><span style="opacity:.75;color:rgb(168,169,172)">/</span><span style="opacity:.75;color:rgb(35,151,74)">180h</span><span style="opacity:.75;color:rgb(129,131,135)">  │  </span><span style="font-weight:700;opacity:.75;color:rgb(39,95,228)">/maxx</span></div>
   <p class="hint">Real output of the renderer, captured today. Colors are plain ANSI and work in any terminal Claude Code does.</p>
   <table>
     <thead><tr><th>cell</th><th>reads</th><th>color</th></tr></thead>
@@ -260,7 +281,8 @@
       <tr><td>@handle · model</td><td>Who and which model. The handle links to your dashboard.</td><td>—</td></tr>
       <tr><td>chat 40%</td><td>How far this chat is toward its hand-off line: 75% of the context window or 350k, whichever comes first. Past it every turn re-bills context a fresh start would not carry.</td><td>green → amber at 71 → red at 85 → blinking at 90. Start fresh.</td></tr>
       <tr><td>session 11% · 1h22m</td><td>Anthropic's 5-hour window, the same number <code>/usage</code> prints, and time until it resets. Bold because it is the wall you can act on in the next ten minutes.</td><td>red when past the advised share for this window.</td></tr>
-      <tr><td>week 104% · 79h</td><td>Pace, not usage. 100 = spending the week exactly as fast as it is passing. 104 = four points hot. 85 = fifteen points cold. Hours to the weekly reset.</td><td>green within ±5 · red hot · amber cold (running cold is a finding too)</td></tr>
+      <tr><td>week 151h/18h</td><td><strong>Clock against runway.</strong> 151 hours until the weekly reset; the budget lasts 18 at your current burn. A percentage tells you where you are in the week; these two tell you whether you make it. A <code>+3h</code> beside them means easing off in the last few minutes bought three hours of runway back.</td><td>green when the runway outlasts the clock · red when it does not — you run dry early, and the gap is how long you sit locked out</td></tr>
+      <tr><td>f6a931d9</td><td>This chat's id. Paste it to another session and <code>/maxx who f6a931d9</code> resolves it back to the repo, the account and how full it is.</td><td>—</td></tr>
     </tbody>
   </table>
 
@@ -270,6 +292,8 @@
     <tbody>
       <tr><td>/maxx</td><td>The usage card: total tokens, tokens per day, cache-hit rate, streak.</td></tr>
       <tr><td>/maxx session</td><td>What this 5-hour window can safely spend right now, in plain language.</td></tr>
+      <tr><td>/maxx accounts</td><td>Every login on this box: what each has left, which is live, which is walled and when it frees up.</td></tr>
+      <tr><td>/maxx who &lt;id&gt;</td><td>Resolve the 8-character session tag from the statusline back to its repo, account and chat size.</td></tr>
       <tr><td>/maxx turn</td><td>What the last turn cost, including subagent burn.</td></tr>
       <tr><td>/maxx report</td><td>Where the week went, per account, with the move each finding implies.</td></tr>
       <tr><td>/maxx switch</td><td>Prints the account with the most room left. <code>eval "$(maxx switch)"</code> hops to it.</td></tr>
@@ -296,7 +320,7 @@
   <p>Public dashboards redact session names. Your secret never appears on any page after signup.</p>
 
   <h2 id="source">Source</h2>
-  <p>MIT. <a href="https://github.com/The-Good-Project-Team/Maxx">github.com/The-Good-Project-Team/Maxx</a></p>
+  <p>MIT. <a href="https://github.com/PhilanthropyOrg/Maxx">github.com/PhilanthropyOrg/Maxx</a></p>
   <ul>
     <li><code>maxx/emit.mjs</code> ships counts from a machine.</li>
     <li><code>maxx/render.mjs</code> draws the statusline.</li>
