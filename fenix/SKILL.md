@@ -17,6 +17,23 @@ it, read=consume — it fires exactly once).
 cannot resurrect a thread that was cleared bare. Handoffs are PER-DIRECTORY
 (`.fenix/handoff.md` in the cwd) — clearing in another project finds nothing there.
 
+**The loop runs itself now.** A Stop hook (`fenix.mjs --ready`) watches the chat reading maxx
+already computes and says one line when the chat is near its hand-off line:
+
+    fenix: chat 87% of its hand-off line. Run /fenix to write the handoff, then /clear —
+    the next session resumes this thread automatically.
+
+Once a handoff exists it switches to `handoff already written. Safe to /clear.` and stops asking.
+It only ever PRINTS: a mechanical handoff is what the SessionEnd autosave already proves is not
+good enough, so the agent holding the context is still the one that writes it. Threshold is
+`MAXX_FENIX_READY_AT` (default 85).
+
+**Two sessions in one directory no longer lose a thread.** They share one `.fenix/handoff.md`, so
+the second write used to replace the first with no trace. Each handoff is now snapshotted beside
+its id when the id is minted, and the copy is kept when a DIFFERENT session supersedes it —
+`handoff.superseded-<id>.md`, still reachable by `--recover <id>`. Same-session rewrites drop the
+snapshot, so .fenix does not fill with every draft of the day.
+
 ## What to do
 
 0. **Run `node ~/.claude/skills/fenix/fenix.mjs --state` and paste its output into the

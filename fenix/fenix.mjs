@@ -165,11 +165,43 @@ function readHandoffId() {
 }
 // Mint (or re-read) the id for the CURRENT pending handoff. Keyed on the handoff's mtime, so the
 // id is STABLE while that handoff stands and is reminted the instant a new one is written.
+// Two sessions in one directory both write `.fenix/handoff.md`, and the loser's thread used to
+// vanish with no trace — the failure the id was invented to make visible and did not prevent.
+//
+// The archive cannot be taken when the clash is DETECTED: by then handoff.md already holds the new
+// session's words and the old ones are gone. So it is taken when the id is MINTED, which is the
+// last moment the file and the id still describe each other. Named for that id, so `--recover <id>`
+// still reaches a thread that later lost the race. Silent and best-effort — this is bookkeeping
+// around someone else's Write call and must never be why a handoff fails to land.
+function snapshotForId(rec) {
+  if (!rec?.id) return;
+  const keep = path.join(DIR, `handoff.superseded-${rec.id}.md`);
+  try {
+    if (existsSync(keep)) return;
+    writeFileSync(keep, readFileSync(HANDOFF, "utf8"));
+  } catch {}
+}
+
+// A snapshot is only worth keeping once its handoff has actually been superseded BY ANOTHER
+// SESSION. The common case is one session writing many handoffs over a day, and keeping a copy of
+// every one of those would turn .fenix into a junk drawer. So: drop the snapshot when the same
+// session moves on, keep it when a different one took the file.
+function reapSnapshot(prev, sidNow) {
+  if (!prev?.id) return;
+  const keep = path.join(DIR, `handoff.superseded-${prev.id}.md`);
+  const foreign = prev.session_id && sidNow && prev.session_id !== sidNow;
+  if (foreign) return;                                  // a real clash — that copy stays
+  try { unlinkSync(keep); } catch {}
+}
+
 function ensureHandoffId(sid) {
   let mtime = 0;
   try { mtime = statSync(HANDOFF).mtimeMs; } catch { return null; }
   const prev = readHandoffId();
   if (prev && prev.handoff_mtime === mtime && prev.id) return prev;
+  // mtime moved, so handoff.md was rewritten. Whoever wrote it, the PREVIOUS id's snapshot is now
+  // either a rescued foreign thread (keep) or this session's own older draft (drop).
+  reapSnapshot(prev, sid || claudeSessionId());
   const name = sessionName();
   const rec = {
     id: makeHandoffId(sid || claudeSessionId(), mtime, name),
@@ -179,6 +211,8 @@ function ensureHandoffId(sid) {
     handoff_mtime: mtime,
   };
   try { writeFileSync(IDFILE, JSON.stringify(rec, null, 2)); } catch {}
+  // taken now, while the file and this id still describe each other — see snapshotForId
+  snapshotForId(rec);
   return rec;
 }
 
@@ -589,5 +623,48 @@ if (arg === "--status") {
   process.exit(0);
 }
 
-console.error("fenix: unknown arg (use --wake | --state | --status | --recover <id> | --compact)");
+// ── --ready ── the missing half of the loop ────────────────────────────────────────────────────
+// --wake already resumes a thread on SessionStart. Nothing told you when to START one, so the
+// handoff got written at whatever moment you happened to remember — which is late, at 90%+ context,
+// the worst moment for recall about a session you are about to throw away. The SessionEnd autosave
+// is a net, not a fix: it fires AFTER the clear and can only snapshot a transcript tail, which its
+// own header admits is worse than an agent-authored handoff.
+//
+// So: a Stop hook that watches the chat reading maxx already computes and says one line when the
+// chat is close enough to its hand-off line that the next clear should be deliberate. maxx scores
+// the chat out of 100 where 100 IS the line (render.mjs: context vs the hand-off line, or a
+// twentieth of the week, whichever binds first), so the threshold here is a percentage of that
+// score and not a second opinion about context — one definition of "full", used by both.
+//
+// It only ever PRINTS. Writing the handoff itself from a hook would be the wrong call twice over:
+// a mechanical handoff is the thing the autosave already proves is not good enough, and a hook that
+// silently writes files on every turn is a surprise. The line asks; you type /fenix; the agent that
+// still has the context writes it.
+if (arg === "--ready") {
+  const at = parseInt(process.env.MAXX_FENIX_READY_AT || "85", 10);
+  // maxx writes one status.json per LOGIN (suffixed by CLAUDE_CONFIG_DIR), so read the one this
+  // session belongs to — the wrong file would score this chat against another account's chats.
+  const SUF = process.env.CLAUDE_CONFIG_DIR
+    ? "-" + path.basename(process.env.CLAUDE_CONFIG_DIR).replace(/^\.claude-?/, "") : "";
+  const statusPath = path.join(HOME, ".maxx", `status${SUF}.json`);
+  let chat = null, sid = claudeSessionId();
+  try {
+    const st = JSON.parse(readFileSync(statusPath, "utf8"));
+    const row = sid ? (st.chats || {})[sid] : null;
+    if (row && typeof row.pct === "number") chat = row.pct;
+  } catch { /* no maxx on this box, or no reading yet — stay silent */ }
+  if (chat == null || chat < at) process.exit(0);          // not yet, or nothing to read
+
+  // Already a fresh handoff here? Then the ask is answered and repeating it every turn is nagging.
+  let pending = false;
+  try { pending = (Date.now() - statSync(HANDOFF).mtimeMs) / 3600000 < 1; } catch {}
+  if (pending) {
+    console.log(`fenix: chat ${chat}% — handoff already written. Safe to /clear.`);
+    process.exit(0);
+  }
+  console.log(`fenix: chat ${chat}% of its hand-off line. Run /fenix to write the handoff, then /clear — the next session resumes this thread automatically.`);
+  process.exit(0);
+}
+
+console.error("fenix: unknown arg (use --wake | --ready | --state | --status | --recover <id> | --compact)");
 process.exit(1);

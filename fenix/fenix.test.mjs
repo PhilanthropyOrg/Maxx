@@ -16,7 +16,7 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -185,4 +185,80 @@ test("no rise chain survives in the source", () => {
   assert.ok(!/arg === "--rise"/.test(src), "--rise came back");
   assert.ok(!/DEFAULT_RISE_FLAGS/.test(src), "the rise flag list came back");
   assert.ok(!/\bspawn\b/.test(src), "fenix spawns a child process again");
+});
+
+// ── the seamless loop: fire at the right moment, resume on clear ───────────────────────────────
+// --wake already resumed a thread. Nothing told you when to START one, so the handoff got written
+// whenever it was remembered — late, at 90%+ context, the worst moment for recall about a session
+// about to be thrown away. --ready is the other half: it watches the chat score maxx already
+// computes and says one line when a clear should be deliberate.
+const readyEnv = (home, sid, extra = {}) => {
+  const e = { ...process.env, HOME: home, CLAUDE_SESSION_ID: sid, MAXX_FENIX_ALLOW_TMP: "1", ...extra };
+  delete e.CLAUDE_CONFIG_DIR;
+  return e;
+};
+const seedStatus = (home, sid, pct) => {
+  mkdirSync(path.join(home, ".maxx"), { recursive: true });
+  writeFileSync(path.join(home, ".maxx", "status.json"),
+    JSON.stringify({ ts: Date.now(), chats: { [sid]: { ts: Date.now(), pct } } }));
+};
+
+test("fenix --ready: silent below the line, asks above it", async () => {
+  const home = mkdtempSync(path.join(tmpdir(), "fenix-ready-"));
+  const sid = "ready-sid-1";
+  seedStatus(home, sid, 40);
+  const quiet = await run("node", [FENIX, "--ready"], { cwd: home, env: readyEnv(home, sid) });
+  assert.equal(quiet.stdout.trim(), "", `40% is nowhere near the line: ${quiet.stdout}`);
+
+  seedStatus(home, sid, 88);
+  const loud = await run("node", [FENIX, "--ready"], { cwd: home, env: readyEnv(home, sid) });
+  assert.match(loud.stdout, /chat 88%/, `expected the reading in the ask: ${loud.stdout}`);
+  assert.match(loud.stdout, /\/fenix/, "must name the command that writes the handoff");
+  assert.match(loud.stdout, /\/clear/, "must name what happens after");
+});
+
+// Asking every turn once you are past the line is nagging, and the ask is already answered the
+// moment a handoff exists. Say it is safe to clear instead.
+test("fenix --ready: a fresh handoff turns the ask into an all-clear", async () => {
+  const home = mkdtempSync(path.join(tmpdir(), "fenix-ready-"));
+  const sid = "ready-sid-2";
+  seedStatus(home, sid, 92);
+  mkdirSync(path.join(home, ".fenix"), { recursive: true });
+  writeFileSync(path.join(home, ".fenix", "handoff.md"), "# handoff\n\nwhat's in motion\n");
+  const out = await run("node", [FENIX, "--ready"], { cwd: home, env: readyEnv(home, sid) });
+  assert.match(out.stdout, /already written/, `expected the all-clear: ${out.stdout}`);
+  assert.match(out.stdout, /Safe to \/clear/, "must say the clear is safe");
+  assert.doesNotMatch(out.stdout, /Run \/fenix/, "must not re-ask for a handoff that exists");
+});
+
+// No maxx reading for this session (a box without maxx, or a chat with no score yet) must not
+// produce a guess. Silence is the only honest output.
+test("fenix --ready: no reading means no ask", async () => {
+  const home = mkdtempSync(path.join(tmpdir(), "fenix-ready-"));
+  const out = await run("node", [FENIX, "--ready"], { cwd: home, env: readyEnv(home, "no-such-sid") });
+  assert.equal(out.stdout.trim(), "", `nothing to read must stay silent: ${out.stdout}`);
+});
+
+// Two sessions in one directory both write .fenix/handoff.md. The loser's thread used to vanish
+// with no trace — the exact thing the id was invented to make visible and did not prevent.
+test("fenix: a foreign session's handoff is archived, not silently replaced", async () => {
+  const home = mkdtempSync(path.join(tmpdir(), "fenix-clash-"));
+  const fdir = path.join(home, ".fenix");
+  mkdirSync(fdir, { recursive: true });
+  // session A writes, and gets an id minted for it
+  writeFileSync(path.join(fdir, "handoff.md"), "# A's thread\n\nA was in the middle of something\n");
+  await run("node", [FENIX, "--status", "--local"], { cwd: home, env: readyEnv(home, "session-A") });
+  const idA = JSON.parse(readFileSync(path.join(fdir, "handoff.id"), "utf8"));
+  assert.equal(idA.session_id, "session-A", "the id must name the session that wrote it");
+
+  // session B overwrites the same path a moment later
+  await new Promise((r) => setTimeout(r, 1100));           // mtime must actually move
+  writeFileSync(path.join(fdir, "handoff.md"), "# B's thread\n\nB overwrote it\n");
+  await run("node", [FENIX, "--status", "--local"], { cwd: home, env: readyEnv(home, "session-B") });
+
+  const kept = path.join(fdir, `handoff.superseded-${idA.id}.md`);
+  assert.ok(existsSync(kept), `A's thread must survive as ${path.basename(kept)}`);
+  assert.match(readFileSync(kept, "utf8"), /A was in the middle/, "the archive must hold A's words");
+  assert.match(readFileSync(path.join(fdir, "handoff.md"), "utf8"), /B overwrote it/,
+    "the live handoff stays where --wake expects it");
 });
