@@ -345,3 +345,44 @@ test("render: the session id is a true 8-char handle, matching the dashboard", (
   assert.match(bar, /7bf3a19c/, `the bar must carry 8 chars of the id: ${JSON.stringify(bar)}`);
   assert.equal(statusOf(home).sessionId, sid, "status.json carries the FULL id for agents");
 });
+
+// Seen live right after the 4→8 widening: the bar came back as "… week 151h/18h │ Maxx · main │
+// /maxx" — repo and branch present, the id gone. It was rank 10, the highest on the whole bar, so
+// it shed FIRST; at four cells it usually squeaked in, and at eight it stopped fitting.
+//
+// That is backwards. Repo and branch are already on the prompt line and in the terminal title, so
+// losing them costs nothing. The id appears nowhere else on screen, and it is the whole reason the
+// tag exists — naming this chat to another one. It must be the LAST of the three to go.
+test("render: a narrow pane sheds branch and repo before the session id", () => {
+  const home = freshHome();
+  const sid = "7bf3a19c-dead-beef-cafe-000000000000";
+  const stdin = JSON.stringify({
+    session_id: sid,
+    workspace: { project_dir: "/Users/someone/Classified/Maxx" },
+    gitBranch: "main",
+    rate_limits: {
+      five_hour: { used_percentage: 26, resets_at: Math.floor(Date.now() / 1000) + 3600 },
+      seven_day: { used_percentage: 22, resets_at: in6d },
+    },
+    context_window: { used_percentage: 10, context_window_size: 1000000 },
+    model: { display_name: "Opus" },
+  });
+  const at = (cols) => {
+    const env = { ...process.env, HOME: home, COLUMNS: String(cols) };
+    delete env.CLAUDE_CONFIG_DIR;
+    return execFileSync("node", [path.join(HERE, "render.mjs")], { input: stdin, env, encoding: "utf8" })
+      .replace(/\x1b\[[0-9;:]*m/g, "").replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "");
+  };
+  // wide: everything fits, so the id is there to begin with
+  assert.match(at(200), /7bf3a19c/, "a wide pane must show the id");
+
+  // squeeze until something in the trailing group gives. The id survives every width at which
+  // ANY of the three is still standing — that is the invariant, whatever the exact cut points are.
+  for (let cols = 200; cols >= 60; cols -= 5) {
+    const bar = at(cols);
+    const hasId = bar.includes("7bf3a19c");
+    if (bar.includes("main") || bar.includes("Maxx")) {
+      assert.ok(hasId, `at ${cols} cols the id shed before repo/branch: ${JSON.stringify(bar)}`);
+    }
+  }
+});

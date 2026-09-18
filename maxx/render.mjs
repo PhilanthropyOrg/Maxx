@@ -1078,11 +1078,9 @@ function main() {
   // ── who and where, TRAILING ──
   // The numbers lead now. Identity and location are what you look up when you already know the
   // numbers are fine, so they sit where the eye arrives last and shed first on a narrow pane.
-  // The session tag is the first 4 chars of the id — the same slice the owner-dashboard feed tags
-  // a row with, so two agents in one directory can be told apart across both surfaces.
   const repo = path.basename((p.workspace || {}).project_dir || p.cwd || "");
   if (repo) put(4, 9, faint(DIM, trunc(repo, 20)));
-  if (branch) put(4, 8, faint(DIM, trunc(branch, 28)));
+  if (branch) put(4, 10, faint(DIM, trunc(branch, 28)));
   // EIGHT chars, not four. The point of printing an id at all is to name THIS chat when talking to
   // another one ("the fix is in 7bf3a19c"), and that only works if the id on the bar is the same
   // string the other surfaces use. The owner dashboard names a session by an 8-char slice
@@ -1090,7 +1088,13 @@ function main() {
   // disambiguator between two local panes, not an identifier. Four hex chars is also 65k values:
   // across a day of sessions a collision is a real possibility, and an id that might name two
   // different chats is worse than no id. Eight matches the dashboard and makes it a true handle.
-  if (sid) put(4, 10, faint(DIM, String(sid).slice(0, 8)));
+  //
+  // It OUTRANKS repo and branch, which is a reversal: it used to shed first in this group and at
+  // eight cells it started losing the race it used to squeak through, so the one thing here you
+  // cannot recover by looking elsewhere was the one thing dropping. Repo and branch are already on
+  // the prompt line and in the terminal title; the id appears nowhere else on screen. Lowest rank
+  // of the three so it is the LAST of them to go.
+  if (sid) put(4, 8, faint(DIM, String(sid).slice(0, 8)));
 
   // the 5h wall: Claude has stopped you anyway. It replaces the money walls and the trailing
   // context — nothing else matters while you are locked out — but never ctx (you can still act on
