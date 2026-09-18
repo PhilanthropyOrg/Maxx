@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "maxx",
-  "description": "maxx — a build-companion statusline and token-stats skill for Claude Code.",
+  "description": "Token budget + session continuity for Claude Code.",
   "owner": {
     "name": "Reif Tauati",
     "email": "reif@thegoodproject.net"
@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "maxx",
-      "source": "./maxx",
-      "description": "A build-companion statusline + token stats for Claude Code."
+      "source": "./",
+      "description": "A statusline that says how much this session can safely spend and when the week runs dry, /maxx cards for usage and logins, and /fenix to carry a thread across the /clear that empties it."
     }
   ]
 }

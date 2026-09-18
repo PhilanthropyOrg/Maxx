@@ -67,14 +67,42 @@ Full field-by-field model: `GET /api/model`.
 
 ## Install (humans)
 
-Want the same numbers in your terminal as a live statusline, plus a `/maxx` skill?
+Want the same numbers in your terminal as a live statusline, plus the `/maxx` and `/fenix` skills?
+
+**As a Claude Code plugin** — one marketplace, both skills:
+
+```
+/plugin marketplace add PhilanthropyOrg/Maxx
+/plugin install maxx
+```
+
+**Or the direct installer**, which also wires the statusline and hooks:
 
 ```bash
 curl -fsSL https://meetmaxx.co/install | bash
 ```
 
-Restart Claude Code. `/maxx` shows totals; `/maxx session` shows what's safe to spend right now.
+Restart Claude Code. `/maxx` shows totals; `/maxx session` shows what's safe to spend right now;
+`/maxx accounts` lists every login on the box and which one is walled.
 Details, statusline colors, and the dashboard: [meetmaxx.co](https://meetmaxx.co).
+
+### The two halves
+
+**`/maxx`** counts. The statusline carries one reading per wall — how full this chat is, what the
+session has spent, and the week as *clock against runway*: hours until the weekly reset over hours
+the budget actually lasts at your current burn. Runway short of the clock means you run dry early,
+and the gap is how long you sit locked out.
+
+**`/fenix`** carries the thread. A chat that hits its context wall is normally a total loss — you
+`/clear` and the next session starts from nothing. fenix writes a handoff of what is in motion and
+injects it into the next session automatically, so the clear costs you the tokens and not the work.
+
+They close a loop. maxx knows how full the chat is; when it nears the line, fenix says so:
+
+> `fenix: chat 87% of its hand-off line. Run /fenix to write the handoff, then /clear — the next
+> session resumes this thread automatically.`
+
+Write it, clear, and the new session wakes up already knowing where you were.
 
 Stays current on its own: if you keep the background shipper running (`--install-agent`, or
 the installer's default), it checks in with the server every 30 minutes and reinstalls itself
@@ -92,12 +120,12 @@ never reads it.
 Requires Node 18+.
 
 ```bash
-npm test    # node --test maxx/*.test.mjs server/*.test.mjs
+npm test    # node --test maxx/*.test.mjs fenix/*.test.mjs server/*.test.mjs
 ```
 
 `server/` is the tally: `tally.mjs` is pure (ingest, budget, watchdog); `handler.mjs`
 wraps it in HTTP + MCP. `maxx/emit.mjs` ships counts from a machine; `maxx/render.mjs` draws the
-statusline bar.
+statusline bar. `fenix/fenix.mjs` writes and resumes the handoffs.
 
 ## License
 

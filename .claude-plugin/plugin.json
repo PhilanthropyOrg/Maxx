@@ -1,0 +1,27 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "maxx",
+  "version": "0.2.0",
+  "description": "Token budget + session continuity for Claude Code. A statusline that says how much this session can safely spend and when the week runs dry, /maxx cards for usage and logins, and /fenix to carry a thread across the /clear that empties it.",
+  "author": {
+    "name": "Reif Tauati",
+    "email": "reif@thegoodproject.net"
+  },
+  "homepage": "https://github.com/PhilanthropyOrg/Maxx",
+  "license": "MIT",
+  "keywords": [
+    "statusline",
+    "tokens",
+    "usage",
+    "quota",
+    "budget",
+    "handoff",
+    "context",
+    "continuity",
+    "productivity"
+  ],
+  "skills": [
+    "./maxx",
+    "./fenix"
+  ]
+}

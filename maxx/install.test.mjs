@@ -89,17 +89,37 @@ test("re-running the installer does not stack duplicate maxx hooks", () => {
   run(home);
   const s = JSON.parse(readFileSync(settingsPath(home), "utf8"));
   const count = (needle) =>
-    [...s.hooks.PreToolUse, ...(s.hooks.SessionStart || [])]
+    [...s.hooks.PreToolUse, ...(s.hooks.SessionStart || []), ...(s.hooks.Stop || [])]
       .flatMap((e) => e.hooks.map((h) => h.command))
       .filter((c) => c.includes(needle)).length;
   assert.equal(count("gate.mjs"), 1, "upgrading must replace maxx's hook, not append another");
-  assert.equal(count("fenix.mjs"), 0, "fenix moved to its own repo — maxx installs no fenix hook");
+  // fenix ships with maxx again, so the loop's two hooks must also be replaced rather than stacked
+  assert.equal(count("fenix.mjs --wake"), 1, "one wake hook after two installs, not two");
+  assert.equal(count("fenix.mjs --ready"), 1, "one ready hook after two installs, not two");
 });
 
-// Upgrading FROM a maxx that shipped fenix: the old SessionStart hook points at
-// $SKILLDIR/fenix.mjs, a file this version no longer installs. Left in place it fails on
-// every session start, so the installer strips its own stale hook — and only its own.
-test("upgrading strips the fenix hook a previous maxx left behind", () => {
+// fenix ships WITH maxx again (merged back 2026-09-18) and the installer wires the whole loop:
+// SessionStart --wake resumes a thread, Stop --ready says when the chat is near its hand-off line.
+// The halves are useless apart — --ready reads maxx's chat score — so one install gets both.
+test("install wires the fenix loop: --wake on SessionStart, --ready on Stop", () => {
+  const home = freshHome();
+  run(home);
+  const s = JSON.parse(readFileSync(settingsPath(home), "utf8"));
+  const cmds = (k) => (s.hooks[k] || []).flatMap((e) => e.hooks.map((h) => h.command));
+  assert.ok(existsSync(path.join(home, ".claude", "skills", "fenix", "fenix.mjs")),
+    "fenix must be installed as its own skill");
+  assert.ok(cmds("SessionStart").some((c) => /fenix\.mjs --wake$/.test(c)), "resume half must be wired");
+  assert.ok(cmds("Stop").some((c) => /fenix\.mjs --ready$/.test(c)), "the ask half must be wired");
+  // absolute node, same rule as every other hook: these run without the user's login PATH
+  for (const c of [...cmds("SessionStart"), ...cmds("Stop")].filter((c) => c.includes("fenix.mjs")))
+    assert.ok(path.isAbsolute(c.split(" ")[0]), `fenix hook must use an absolute node: ${c}`);
+});
+
+// An upgrade may hold a hook pointing at a path that no longer exists — the old in-maxx copy, or
+// the standalone Fenix repo it lived in between the split and the merge. A hook whose command is
+// missing fails on EVERY session start, so ours are re-pointed rather than stacked. Anything that
+// is not a fenix hook is not ours to touch.
+test("upgrading re-points a stale fenix hook instead of stacking or dangling", () => {
   const home = freshHome();
   const p = settingsPath(home);
   mkdirSync(path.dirname(p), { recursive: true });
@@ -107,6 +127,7 @@ test("upgrading strips the fenix hook a previous maxx left behind", () => {
     hooks: {
       SessionStart: [
         { hooks: [{ type: "command", command: `node ${home}/.claude/skills/maxx/fenix.mjs --wake` }] },
+        { hooks: [{ type: "command", command: "node /Users/someone/Classified/Fenix/fenix/fenix.mjs --wake" }] },
         { hooks: [{ type: "command", command: "/opt/other/tool --wake" }] },
       ],
     },
@@ -114,6 +135,9 @@ test("upgrading strips the fenix hook a previous maxx left behind", () => {
   run(home);
   const s = JSON.parse(readFileSync(p, "utf8"));
   const start = (s.hooks.SessionStart || []).flatMap((e) => e.hooks.map((h) => h.command));
-  assert.ok(!start.some((c) => c.includes("fenix.mjs")), "stale maxx fenix hook must be removed");
+  const fenix = start.filter((c) => c.includes("fenix.mjs"));
+  assert.equal(fenix.length, 1, `exactly one fenix wake hook, re-pointed: ${JSON.stringify(start)}`);
+  assert.ok(fenix[0].includes(path.join(home, ".claude", "skills", "fenix", "fenix.mjs")),
+    "and it points at the copy this install just placed");
   assert.ok(start.includes("/opt/other/tool --wake"), "another tool's SessionStart hook must survive");
 });

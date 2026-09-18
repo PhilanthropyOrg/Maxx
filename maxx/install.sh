@@ -75,12 +75,36 @@ place "$SRC/emit.mjs"     "$SKILL/emit.mjs"
 place "$SRC/pace.mjs"     "$SKILL/pace.mjs"
 place "$SRC/token.mjs"    "$SKILL/token.mjs"
 place "$SRC/gate.mjs"     "$SKILL/gate.mjs"
+place "$SRC/accounts.mjs" "$SKILL/accounts.mjs"
+place "$SRC/session.mjs"  "$SKILL/session.mjs"
+place "$SRC/switch.mjs"   "$SKILL/switch.mjs"
+place "$SRC/setup.mjs"    "$SKILL/setup.mjs"
+place "$SRC/report.mjs"   "$SKILL/report.mjs"
+place "$SRC/prices.mjs"   "$SKILL/prices.mjs"
+place "$SRC/turns.mjs"    "$SKILL/turns.mjs"
+place "$SRC/update.mjs"   "$SKILL/update.mjs"
+
+# ── fenix ── the other half of the loop, installed as its own skill.
+# maxx says how full the chat is; fenix carries the thread across the /clear that empties it.
+# They ship together because --ready reads maxx's chat score: installing one without the other
+# gives you a loop with a missing end. Separate skill directory so /fenix is its own command.
+FENIX_SRC="$(cd "$SRC/../fenix" 2>/dev/null && pwd || true)"
+if [ -n "$FENIX_SRC" ] && [ -f "$FENIX_SRC/fenix.mjs" ]; then
+  FENIX="$CLAUDE/skills/fenix"
+  mkdir -p "$FENIX"
+  place "$FENIX_SRC/SKILL.md"  "$FENIX/SKILL.md"
+  place "$FENIX_SRC/fenix.mjs" "$FENIX/fenix.mjs"
+fi
 
 # wire the statusLine (node render.mjs) into settings.json. render.mjs also refreshes the rolling-token
 # window.json on a cadence, so no Stop hook is needed. (Older installs added a brain.mjs Stop hook — we
 # remove it here so upgraders aren't left with a dangling hook after brain.mjs was folded away.)
 [ -f "$CLAUDE/settings.json" ] && cp "$CLAUDE/settings.json" "$CLAUDE/settings.json.bak-maxx"
-RENDER="$NODE_BIN $SKILL/render.mjs" SKILLDIR="$SKILL" NODE_BIN="$NODE_BIN" \
+# FENIX_BIN is set only when fenix was actually placed above — the settings block keys the whole
+# loop off its presence, so a maxx-only install wires no fenix hooks rather than dangling ones.
+FENIX_BIN=""
+[ -f "$CLAUDE/skills/fenix/fenix.mjs" ] && FENIX_BIN="$CLAUDE/skills/fenix/fenix.mjs"
+RENDER="$NODE_BIN $SKILL/render.mjs" SKILLDIR="$SKILL" NODE_BIN="$NODE_BIN" FENIX_BIN="$FENIX_BIN" \
 node - "$CLAUDE/settings.json" <<'JS'
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -118,14 +142,37 @@ d.hooks.PreToolUse.push({
   matcher: "Agent|Task|Workflow|ScheduleWakeup|CronCreate",
   hooks: [{ type: "command", command: `${process.env.NODE_BIN} ${process.env.SKILLDIR}/gate.mjs`, timeout: 10 }],
 });
-// fenix moved to its own repo (2026-09-10) — maxx counts spend, fenix carries context.
-// Strip any SessionStart hook a previous maxx install left pointing at OUR copy: the file
-// is gone, and a hook whose command does not exist fails on every session start. A hook
-// pointing at a fenix INSTALLED ELSEWHERE is left alone — not ours to remove.
-d.hooks.SessionStart = (d.hooks.SessionStart || []).filter(
-  (h) => !JSON.stringify(h).includes(`${process.env.SKILLDIR}/fenix.mjs`),
-);
-if (!d.hooks.SessionStart.length) delete d.hooks.SessionStart;
+// ── the fenix loop ──
+// fenix was split out on 2026-09-10 and came back on 2026-09-18: the separation never held in the
+// code (fenix writes ~/.claude/maxx/, reads ~/.maxx/config.json, every knob is MAXX_*), and the
+// loop only closes when both halves are installed. maxx says how full the chat is; fenix carries
+// the thread across the /clear that empties it.
+//
+//   SessionStart → --wake   resume the thread a previous session left here
+//   Stop         → --ready  say when the chat is near its hand-off line
+//
+// Both are re-pointed rather than appended: a previous install may hold the old
+// ~/.claude/skills/maxx/fenix.mjs path, or a path into the pre-merge Fenix repo, and a hook whose
+// command does not exist fails on EVERY session start. Any fenix hook we recognise by filename is
+// ours to correct; anything else in those arrays is left untouched.
+if (process.env.FENIX_BIN) {
+  const isFenix = (h) => /fenix\.mjs/.test(JSON.stringify(h));
+  d.hooks.SessionStart = (d.hooks.SessionStart || []).filter((h) => !isFenix(h));
+  d.hooks.SessionStart.push({
+    hooks: [{ type: "command", command: `${process.env.NODE_BIN} ${process.env.FENIX_BIN} --wake`, timeout: 10 }],
+  });
+  d.hooks.Stop = (d.hooks.Stop || []).filter((h) => !isFenix(h));
+  d.hooks.Stop.push({
+    hooks: [{ type: "command", command: `${process.env.NODE_BIN} ${process.env.FENIX_BIN} --ready`, timeout: 10 }],
+  });
+} else {
+  // no fenix alongside this maxx — strip any hook pointing at a copy we used to install, since
+  // that file is gone. A fenix installed ELSEWHERE is not ours to remove.
+  d.hooks.SessionStart = (d.hooks.SessionStart || []).filter(
+    (h) => !JSON.stringify(h).includes(`${process.env.SKILLDIR}/fenix.mjs`),
+  );
+  if (!d.hooks.SessionStart.length) delete d.hooks.SessionStart;
+}
 mkdirSync(dirname(p), { recursive: true });
 writeFileSync(p, JSON.stringify(d, null, 2));
 JS
