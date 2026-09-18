@@ -141,3 +141,43 @@ test("upgrading re-points a stale fenix hook instead of stacking or dangling", (
     "and it points at the copy this install just placed");
   assert.ok(start.includes("/opt/other/tool --wake"), "another tool's SessionStart hook must survive");
 });
+
+// LOCAL BY DEFAULT. The install used to auto-claim a handle from the user's email and ship counts,
+// on the theory that the central tally is what collates spend across machines. It does not need to:
+// Anthropic puts the ACCOUNT-WIDE 5h and weekly percentages on every session's stdin, already
+// summed over every machine and agent on that login.
+//
+// Measured 2026-09-18: the server returned 83.0%/17.0% for a handle — byte-identical to what the
+// local session already had, because the server anchors to that same number. Its own per-surface
+// attribution summed to ~4.5% against Anthropic's 83%, a cache-weighted count never matching
+// billing. The round-trip's only unique contribution was the wrong part.
+//
+// So an install that phones home is all cost: it needs the network, it needs the service up (it
+// was 502 for hours that same day), and it silently claims a name derived from the user's email.
+test("install: claims nothing and calls nobody — a working bar needs no account", () => {
+  const home = freshHome();
+  const out = run(home).out;
+  let cfg = {};
+  try { cfg = JSON.parse(readFileSync(path.join(home, ".maxx", "config.json"), "utf8")); } catch {}
+  assert.ok(!cfg.handle, `the install must not claim a handle: ${JSON.stringify(cfg)}`);
+  assert.ok(!cfg.secret, "and must not hold a secret it never asked for");
+  // The output is what proves no attempt was MADE. A machine whose derived handle is already
+  // taken fails signup and ends up handle-less too, so the config alone cannot tell the two
+  // apart — only the absence of a signup attempt can.
+  assert.doesNotMatch(out, /signup failed/i, "the install must not even try to claim a handle");
+  assert.match(out, /maxx is local/, "and must say plainly that no account is needed");
+  assert.match(out, /--signup/, "while still naming the opt-in for anyone who wants the dashboard");
+});
+
+// …and it must SURVIVE the tally being down, since that is the state it was in the day this
+// changed. An installer that hangs or fails on an unreachable API is one an outage breaks.
+test("install: succeeds with the tally unreachable", () => {
+  const home = freshHome();
+  const out = execFileSync("bash", [INSTALL], {
+    env: { ...process.env, HOME: home, MAXX_LOGS_URL: "http://127.0.0.1:1", MAXX_HANDLE: "", MAXX_SECRET: "" },
+    encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 90_000,
+  });
+  assert.match(out, /maxx is local/, "and it should say so plainly");
+  const s = JSON.parse(readFileSync(settingsPath(home), "utf8"));
+  assert.ok(s.statusLine, "the statusline still gets wired with the API down");
+});

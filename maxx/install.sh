@@ -25,7 +25,7 @@ if [ ! -f "$SRC/render.mjs" ]; then
   command -v git >/dev/null || { echo "maxx needs git to self-install (or clone the repo and run maxx/install.sh)." >&2; exit 1; }
   TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
   echo "maxx: fetching…"
-  git clone --depth 1 https://github.com/The-Good-Project-Team/Maxx.git "$TMP/Maxx" >/dev/null 2>&1 || { echo "maxx: clone failed." >&2; exit 1; }
+  git clone --depth 1 https://github.com/PhilanthropyOrg/Maxx.git "$TMP/Maxx" >/dev/null 2>&1 || { echo "maxx: clone failed." >&2; exit 1; }
   exec bash "$TMP/Maxx/maxx/install.sh" "$@"
 fi
 
@@ -233,23 +233,30 @@ JS
       ;;
   esac
 else
-  # Zero-decision onboarding: no env link and no existing handle → claim one automatically
-  # from the Claude login (email local part; -uuid suffix if taken). Picking a name is the
-  # OPTIONAL step, not the gate — the fastest path to "binge-watch your tokens" is one paste.
+  # LOCAL BY DEFAULT — the install claims nothing and calls nobody.
+  #
+  # This used to auto-claim a handle, on the theory that the tally is what collates spend across
+  # machines. It does not need to: Anthropic puts the ACCOUNT-WIDE 5h and weekly percentages on
+  # every session's stdin, already summed over every machine and every agent on that login.
+  # Measured 2026-09-18 on this box — the server returned 83.0%/17.0% for @reif, byte-identical to
+  # what the local session already had, because the server anchors to that same number. Its own
+  # per-surface attribution summed to ~4.5% against Anthropic's 83%, since a cache-weighted local
+  # token count never matches billing. So the one thing the round-trip added was the wrong part.
+  #
+  # Which makes an install that phones home all cost and no signal: it needs the network, it needs
+  # the service to be up (it was 502 for hours that same day), and it silently claims a name
+  # derived from the user's email. `--signup` is still there for the dashboard, the MCP endpoint
+  # and webhooks — it is an opt-in extra now, not a step on the way to a working statusline.
   EXISTING=$(node -e 'try{const c=require(process.env.HOME+"/.maxx/config.json");process.stdout.write(c.handle&&c.handle!=="unknown"?c.handle:"")}catch{}' 2>/dev/null || true)
   if [ -n "$EXISTING" ]; then
     echo ""
-    echo "maxx: already linked to @$EXISTING · card → https://meetmaxx.co/u/$EXISTING"
-  elif node "$SKILL/emit.mjs" --signup; then
-    node "$SKILL/emit.mjs" --install-agent || true
-    node "$SKILL/emit.mjs" --send >/dev/null 2>&1 || true
-    NEWH=$(node -e 'try{process.stdout.write(require(process.env.HOME+"/.maxx/config.json").handle||"")}catch{}' 2>/dev/null || true)
-    [ -n "$NEWH" ] && echo "  binge-watch your tokens → https://meetmaxx.co/u/$NEWH   (want a different name? node $SKILL/emit.mjs --signup <handle>)"
-    [ -n "$NEWH" ] && offer_token_setup "$NEWH"
+    echo "maxx: linked to @$EXISTING · card → https://meetmaxx.co/u/$EXISTING"
   else
     echo ""
-    echo "Optional — central budget tally (cloud + all machines, one number):"
-    echo "  node $SKILL/emit.mjs --signup                 # derives your handle from your Claude login"
-    echo "  node $SKILL/emit.mjs --install-agent          # live-ship usage at login"
+    echo "  maxx is local — your numbers come from Anthropic's own per-session limits, no account needed."
+    echo ""
+    echo "  Optional, for a shareable dashboard, an MCP endpoint your agents can call, and several"
+    echo "  machines rolled into one page:"
+    echo "    node $SKILL/emit.mjs --signup                 # claims a handle from your Claude login"
   fi
 fi

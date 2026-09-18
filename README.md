@@ -131,12 +131,25 @@ the installer's default), it checks in with the server every 30 minutes and rein
 the moment a new version ships — same command as above, run for you. Nothing to remember, no
 cron to set up. A dev checkout (`--link`) is exempt; it's never overwritten.
 
-## When the server is down
+## Local by default
 
-maxx keeps working. The statusline, `/maxx accounts` and `/fenix` read Anthropic's own rate-limit
-numbers off each session plus local ledger files — no network call on that path, verified with the
-API blackholed. What needs the tally: claiming a handle at install, the dashboard, the MCP
-endpoint, and rolling several machines into one number.
+**The install claims nothing and calls nobody.** Your numbers come from Anthropic itself: the 5-hour
+and weekly percentages ride in on every session, already summed across every machine and every agent
+on that login. maxx reads them, prices the local ledger against them, and draws the bar. No account,
+no network, nothing to be down.
+
+That is also why there is no "collate my machines" step. Anthropic's number *is* the collation —
+measured on a two-account box: the tally returned 83.0%/17.0% for a handle, byte-identical to what
+the local session already had, because the tally anchors to that same number.
+
+Signing up is opt-in and buys three things: a shareable dashboard, an MCP endpoint your agents can
+call headless, and webhooks.
+
+```bash
+node ~/.claude/skills/maxx/emit.mjs --signup
+```
+
+The statusline, `/maxx accounts` and `/fenix` never touch it — verified with the API blackholed.
 
 The budget gate **fails open**. It denies on a real weekly wall and never on its own
 unreachability — a counter that stops your work because it cannot reach itself is inventing a

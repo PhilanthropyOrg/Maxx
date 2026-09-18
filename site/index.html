@@ -127,7 +127,7 @@
     <a href="#response" class="sub">Reading the response</a>
     <a href="#handle">Get a handle</a>
     <div class="grp">Reference</div>
-    <a href="#offline">When the server is down</a>
+    <a href="#offline">Local by default</a>
     <a href="#privacy">Privacy</a>
     <a href="#source">Source</a>
   </div>
@@ -312,8 +312,11 @@
   </figure>
   <p class="hint">Webhooks for <code>over</code> / <code>recovered</code> / week-80/90/95: <code>POST /api/u/&lt;you&gt;/webhooks</code>. Poll <code>GET /api/u/&lt;you&gt;/budget</code> for the same JSON without MCP.</p>
 
-  <h2 id="offline">When the server is down</h2>
-  <p>maxx keeps working. The statusline, <code>/maxx accounts</code> and <code>/fenix</code> read Anthropic's own rate-limit numbers off each session plus local ledger files — there is no network call on that path, verified with the API blackholed. What needs the tally: claiming a handle at install, the dashboard, the MCP endpoint, and rolling several machines into one number.</p>
+  <h2 id="offline">Local by default</h2>
+  <p><strong>The install claims nothing and calls nobody.</strong> Your numbers come from Anthropic itself: the 5-hour and weekly percentages ride in on every session, already summed across every machine and every agent on that login. maxx reads them, prices the local ledger against them, and draws the bar. No account, no network, nothing to be down.</p>
+  <p>That is also why there is no "collate my machines" step — Anthropic's number <em>is</em> the collation. Measured on a two-account box: the tally returned 83.0%/17.0% for a handle, byte-identical to what the local session already had, because the tally anchors to that same number.</p>
+  <p>Signing up is opt-in and buys three things: the dashboard below, the MCP endpoint your agents can call headless, and webhooks. The statusline, <code>/maxx accounts</code> and <code>/fenix</code> never touch it.</p>
+  <div class="copybar"><code><span class="p">$</span> node ~/.claude/skills/maxx/emit.mjs --signup</code><button data-copy="node ~/.claude/skills/maxx/emit.mjs --signup">Copy</button></div>
   <div class="callout">
     <p><strong>The budget gate fails open.</strong> It denies on a real weekly wall and never on its own unreachability. A counter that stops your work because it cannot reach <em>itself</em> is inventing a limit — the one thing this project promises not to do. <code>gate.mjs --fail closed</code> if you want the stricter posture.</p>
   </div>
