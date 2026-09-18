@@ -613,7 +613,25 @@ function main() {
     // a held cap below the tokens already counted against it is nonsense (a cold-start render can pin
     // cap=1 right after an account switch) — drop it so the brain's cap or a fresh anchor takes over.
     if (prevCap && tok != null && prevCap < tok) prevCap = 0;
+    // …and so is an anchor an order of magnitude under what limit.mjs measured for the SAME account.
+    // Both infer the cap the same way (spend ÷ Anthropic's %), but the brain divides a full-history
+    // transcript scan where this divides `tok`, a per-render anchor snapshot. On a box whose local
+    // ledger is thin against account-wide spend (a second machine, or a freshly restamped account
+    // epoch) `tok` is a small fraction of what the % actually counts, and tok/pct under-shoots badly.
+    //
+    // Seen live on the tgp login: both accounts sat at q7 = 0.06, gmail anchored cap7 = 144M off a
+    // tok7a of 8.7M, tgp anchored 9M off a tok7a of 831k — while ITS OWN window.json carried a
+    // brain cap of 95M from a 430M bucket sum. Everything downstream divides by this number, so the
+    // chat row read its share of the week as 7% against a 5% line and pinned to 100 — on EVERY chat
+    // on the account, which is the tell that the denominator and not the chat was wrong.
+    //
+    // The brain scans more than a render can, so below a third of it the anchor is not noise, it is
+    // a different (worse) measurement of the same quantity. Defer, and let the EMA below converge.
+    if (brainCap && prevCap && prevCap < brainCap / 3) prevCap = 0;
     if (have && pct > 0.02 && tok != null) {
+      // same floor on a FRESH anchor, so a thin ledger cannot re-pin the bad cap the moment the
+      // wall % ticks — without this the flush above just re-runs every tick and never converges.
+      if (brainCap && tok / pct < brainCap / 3) return prevCap || brainCap;
       if (prevCap && prevPct != null && Math.abs(prevPct - pct) < 0.005) return prevCap; // wall % steady → hold
       // wall ticked → re-anchor, but EMA-smooth the jump (½ old, ½ new). The cap is an estimate (tok is
       // cache-inflated, so tok/pct can leap on a tick); blending keeps roll-session from lurching on noise

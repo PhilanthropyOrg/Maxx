@@ -386,3 +386,76 @@ test("render: a narrow pane sheds branch and repo before the session id", () => 
     }
   }
 });
+
+// Seen live on the tgp login: "chat 100%" one turn into a fresh chat, and every OTHER chat on that
+// account also pinned at 100 — the tell that the denominator was wrong, not the chat.
+//
+// cap7 is inferred as spend ÷ Anthropic's %. limit.mjs divides a full-history transcript scan;
+// render.mjs divides `tok`, a per-render anchor snapshot. On a box whose local ledger is thin
+// against account-wide spend, tok/pct under-shoots hard: both logins sat at q7 = 0.06, gmail
+// anchored 144M off a tok7a of 8.7M, tgp anchored 9M off a tok7a of 831k while its own window.json
+// carried a brain cap of 95M. The chat row divides by that, so a perfectly ordinary 654k-token chat
+// scored 7% of the week against a 5% line and clamped to 100.
+test("render: a thin local ledger cannot under-infer the weekly cap past the brain's scan", () => {
+  const home = freshHome();
+  const now = Date.now();
+  // the live shape: a brain cap far above what this box's own buckets would imply
+  writeFileSync(path.join(home, ".maxx", "window.json"), JSON.stringify({
+    buckets: [[now - 60 * 1000, 831_509]],       // thin: one small bucket is all this machine saw
+    cap7: 95_099_583,                            // limit.mjs's full-history scan of the SAME account
+    accountCreatedAt: now - 60 * 24 * 3600 * 1000,
+  }));
+  const stdin = JSON.stringify({
+    session_id: "46296dc1-thin-ledger",
+    rate_limits: {
+      five_hour: { used_percentage: 8, resets_at: Math.floor(now / 1000) + 3600 },
+      seven_day: { used_percentage: 6, resets_at: in6d },   // the live q7
+    },
+    context_window: { used_percentage: 13, context_window_size: 1000000 },
+    model: { display_name: "Opus" },
+  });
+  const s = JSON.parse(execFileSync("node", [path.join(HERE, "render.mjs"), "--status"],
+    { input: stdin, env: cleanEnv(home), encoding: "utf8" }));
+
+  // 831509 / 0.06 = 13.9M, an order of magnitude under the brain's 95M — the anchor must defer.
+  assert.ok(s.weekly.cap >= 95_099_583 / 3,
+    `a thin ledger must not pin the weekly cap under a third of the brain's: ${s.weekly.cap}`);
+});
+
+// …and the consequence that made it visible: with a sane denominator an ordinary chat is not 100.
+// The chat row divides epoch spend by cap7, so this is the same bug wearing the face the user sees.
+test("render: an ordinary chat does not read 100% because the cap collapsed", () => {
+  const home = freshHome();
+  const now = Date.now();
+  writeFileSync(path.join(home, ".maxx", "window.json"), JSON.stringify({
+    buckets: [[now - 60 * 1000, 831_509]],
+    cap7: 95_099_583,
+    accountCreatedAt: now - 60 * 24 * 3600 * 1000,
+  }));
+  // The chat needs real epoch spend for the SHARE line to score at all — seeded straight into
+  // turns.json (what turnCount reads) rather than synthesised as a transcript. 653908 is the live
+  // figure from the session that showed this. Against the collapsed 13.9M cap that is 5% of the
+  // week — dead on the 5% line — and against the true 95M cap it is well under 1%.
+  writeFileSync(path.join(home, ".maxx", "turns.json"), JSON.stringify({
+    "46296dc1-thin-ledger": { off: 0, n: 12, msgs: 24, ctx: 13, rid: null, w: 653_908, w0: 0, subs: {} },
+  }));
+  const stdin = JSON.stringify({
+    session_id: "46296dc1-thin-ledger",
+    rate_limits: {
+      five_hour: { used_percentage: 8, resets_at: Math.floor(now / 1000) + 3600 },
+      seven_day: { used_percentage: 6, resets_at: in6d },
+    },
+    context_window: { used_percentage: 13, context_window_size: 1000000 },  // 13 against a 35 line
+    model: { display_name: "Opus" },
+  });
+  const bar = execFileSync("node", [path.join(HERE, "render.mjs")], { input: stdin, env: cleanEnv(home), encoding: "utf8" })
+    .replace(/\x1b\[[0-9;:]*m/g, "").replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "");
+  const m = bar.match(/chat (\d+)%/);
+  assert.ok(m, `no chat reading in the bar: ${JSON.stringify(bar)}`);
+  // With the true cap this chat is scored by its CONTEXT (13 against a 35 line = 37) because its
+  // spend share is under 1%. With the collapsed cap the share line took over and drove it to 94.
+  // Assert the context reading, not merely "< 100": the clamp means a badly wrong denominator can
+  // still land under 100 and a loose bound would call that a pass.
+  assert.equal(Number(m[1]), 37,
+    `a chat 13% into its context is scored by context, not by a collapsed week: got ${m[1]}`);
+});
