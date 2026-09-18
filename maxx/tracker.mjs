@@ -27,6 +27,7 @@ const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(HOME, ".claude");
 const DEFAULT_DIR = path.join(CLAUDE_DIR, "projects");
 // session-scoped cache suffix — same rule as render/limit/gate/emit
 const SUF = process.env.CLAUDE_CONFIG_DIR ? "-" + path.basename(CLAUDE_DIR).replace(/^\.claude-?/, "") : "";
+import * as wireMod from "./wire.mjs";
 const CONFIG_DIR = path.join(HOME, ".maxx"); // local state dir (window.json / rl.json) — read-only here
 
 // ─── args ───────────────────────────────────────────────────────────────────
@@ -51,6 +52,9 @@ function parseArgs(argv) {
     else if (a === "report" || a === "week") out.cmd = "report";
     else if (a === "turn") out.cmd = "turn";
     else if (a === "refresh") out.cmd = "refresh";
+    // `wire` finishes a plugin install: /plugin can place skills but cannot write settings.json,
+    // so the statusline and the fenix hooks are missing until this runs.
+    else if (a === "wire") out.cmd = "wire";
     else if (a === "config") out.cmd = "config";
     else if (a === "light" || a === "dark" || a === "auto") { out.cmd = "theme"; out.theme = a; }
     else if (a === "raw") out.raw = true;
@@ -454,6 +458,16 @@ function pretty(s) {
     }
   }
   L.push("");
+  // A plugin install places the skills and nothing else — /plugin cannot write settings.json — so
+  // the statusline and the fenix hooks are simply absent, and the card is the only surface that
+  // can say so. Without this the headline feature is missing with nothing on screen to explain it.
+  try {
+    const { inspect, missingText } = wireMod;
+    if (inspect && missingText) {
+      const msg = missingText(inspect(path.join(HOME, ".claude", "settings.json"), path.dirname(fileURLToPath(import.meta.url))));
+      if (msg) { L.push(`  ${msg}`); L.push(""); }
+    }
+  } catch {}
   // sign the card — a small thank-you keyed to the handle of the account THIS
   // session is signed into (cfg.accounts map), falling back to the pinned handle
   try {
@@ -576,6 +590,9 @@ if (isMainModule()) {
         w(`  ⚡ last turn  ${fmt(t.grand)} tokens  ·  ${t.calls} api calls${agents}`);
         w(`     output ${human(t.output)} · cache-read ${human(t.cacheRead)} · input ${human(t.input)} · cache-write ${human(t.cacheCreate)}`);
       }
+    } else if (a.cmd === "wire") {
+      const { wire, renderWire } = await import("./wire.mjs");
+      w(renderWire(wire()));
     } else if (a.cmd === "refresh") {
       // stuck bar / stale numbers → drop the derived caches and rebuild. Everything
       // here is recomputable from the logs; ledgers, config, secrets and the emit
